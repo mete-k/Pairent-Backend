@@ -1,0 +1,22 @@
+# ---------------------------
+# Python
+# ---------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+pairent_venv/
+
+# ---------------------------
+# Local DynamoDB
+# ---------------------------
+DynamoDB/
+
+# ---------------------------
+# IDEs and OS junk
+# ---------------------------
+# VSCode
+.vscode/
+# Windows
+Thumbs.db
