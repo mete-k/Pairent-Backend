@@ -1,0 +1,4 @@
+PyJWT
+requests
+flask
+boto3

@@ -1,35 +1,85 @@
 # src/services/forum_service.py
 import uuid
-from typing import Optional, Dict, Any
+from flask import g
+from datetime import datetime, timezone
+from ..db import ensure_table
 from ..repo.question_repo import QuestionRepo
-from ..models.question import QuestionCreate, Question, QuestionPublic
+from ..models.question import QuestionCreate, Question
 
 class ForumService:
-    def __init__(self):
-        self.questions = QuestionRepo()
-
-    def create_question(self, author_id: str, payload: QuestionCreate) -> Dict[str, Any]:
+    def __init__(self) -> None:
+        ensure_table()
+    def create_question(self, payload: QuestionCreate) -> dict[str, object]:
         q = Question(
             qid=str(uuid.uuid4()),
             title=payload.title.strip(),
             body=payload.body.strip(),
-            author_id=author_id,
+            author_id=g.user_sub,
             tags=payload.tags,
+            age=payload.age,
+            created_at=datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+            likes=0,
+            answer_count=0
         )
-        self.questions.create(q)
+        QuestionRepo.create(q)
         return {"qid": q.qid}
 
-    def get_question(self, qid: str) -> Optional[Dict[str, Any]]:
-        q = self.questions.get(qid)
-        return None if q is None else QuestionPublic.from_domain(q).model_dump()
+    def get_question(self, qid: str) -> dict[str, object] | None:
+        q = QuestionRepo.get(qid)
+        return None if q is None else q.model_dump()
 
-    def edit_question(self, qid: str, title: str = None, body: str = None) -> Dict[str, Any]:
-        q = self.questions.edit(qid=qid, title=title, body=body)
-        return None if q is None else QuestionPublic.from_domain(q).model_dump()
+    def edit_question(self, qid: str, title: str = None, body: str = None) -> dict[str, object] | None:
+        authorship = _authorized(qid)
+        if authorship == -1:
+            return None
+        elif authorship == 0:
+            return {"error": "not_authorized"}
+        q = QuestionRepo.edit(qid=qid, title=title, body=body)
+        return None if q is None else q.model_dump()
+    
+    def delete_question(self, qid: str) -> bool:
+        authorship = _authorized(qid)
+        if authorship == -1:
+            return None
+        elif authorship == 0:
+            return {"error": "not_authorized"}
+        return QuestionRepo.delete(qid)
 
-    def list_questions(self, limit: int = 20, cursor: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        items, last_key = self.questions.list_recent(limit=limit, last_key=cursor)
+    def like_question(self, qid: str) -> bool:
+        return QuestionRepo.like(qid)
+    def unlike_question(self, qid: str) -> bool:
+        return QuestionRepo.unlike(qid)
+    def get_like_question(self, qid: str) -> bool:
+        return QuestionRepo.get_like(qid)
+
+    def list_questions(self, limit: int, sort: str, last_key: dict[str, str] | None) -> dict[str, object]:
+        if sort in ['popular', 'new']:
+            res = QuestionRepo.list_questions(limit=limit, sort=sort, last_key=last_key)
+        else:
+            return {"error": "invalid_sort_parameter"}
+        cursor = res.get("LastEvaluatedKey")
         return {
-            "items": [QuestionPublic.from_domain(q).model_dump() for q in items],
-            "nextCursor": last_key
+            "items": res["Items"],
+            "pageInfo": {
+                "hasNextPage": False if cursor == None else True,
+                "endCursor": cursor
+            }
         }
+    def list_questions_by_user(self, limit: int, last_key: dict[str, str] | None) -> dict[str, object]:
+        res = QuestionRepo.list_questions_by_user(user_id=g.user_sub, limit=limit, last_key=last_key)
+        cursor = res.get("LastEvaluatedKey")
+        return {
+            "items": res["Items"],
+            "pageInfo": {
+                "hasNextPage": False if cursor == None else True,
+                "endCursor": cursor
+            }
+        }
+
+    # def list_questions_with_tag
+
+def _authorized(qid: str) -> int:
+    q = QuestionRepo.get(qid)
+    if not q:
+        return -1
+    return int(g.user_sub == q.user_id)

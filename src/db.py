@@ -34,8 +34,45 @@ def ensure_table():
                 {"AttributeName": "SK", "AttributeType": "S"},
             ],
             ProvisionedThroughput={
-                'ReadCapacityUnits': 1,
-                'WriteCapacityUnits': 1
-            }
+                'ReadCapacityUnits': 5,
+                'WriteCapacityUnits': 5
+            },
+            GlobalSecondaryIndexes=[
+                # 1. By popularity
+                {
+                    "IndexName": "popular",
+                    "KeySchema": [
+                        {"AttributeName": "gsi", "KeyType": "HASH"},
+                        {"AttributeName": "likes", "KeyType": "RANGE"}
+                    ],
+                    "Projection": {
+                        "ProjectionType": "KEYS_ONLY"
+                    }
+                },
+
+                # 2. By Recency
+                {
+                    "IndexName": "new",
+                    "KeySchema": [
+                        {"AttributeName": "gsi", "KeyType": "HASH"},
+                        {"AttributeName": "date", "KeyType": "RANGE"}
+                    ],
+                    "Projection": {
+                        "ProjectionType": "KEYS_ONLY"
+                    }
+                },
+
+                # 3. Questions by Author
+                {
+                    "IndexName": "author",
+                    "KeySchema": [
+                        {"AttributeName": "author", "KeyType": "HASH"},
+                        {"AttributeName": "date", "KeyType": "RANGE"},
+                    ],
+                    "Projection": {
+                        "ProjectionType": "KEYS_ONLY"
+                    }
+                }
+            ]
         )
         forum_table.wait_until_exists()
