@@ -11,13 +11,13 @@ class ForumService:
         ensure_table()
     def create_question(self, payload: QuestionCreate) -> dict[str, object]:
         q = Question(
-            qid=str(uuid.uuid4()),
+            qid=uuid.uuid4().hex,
             title=payload.title.strip(),
             body=payload.body.strip(),
             author_id=g.user_sub,
             tags=payload.tags,
             age=payload.age,
-            created_at=datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+            created_at=datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S"),
             likes=0,
             answer_count=0
         )

@@ -60,3 +60,7 @@ def to_question(item: dict | None) -> Question | None:
         likes=item.get("likes", 0),
         answer_count=item.get("answers", 0)
     )
+
+class Tag(BaseModel):
+    tag: str
+    qid: int

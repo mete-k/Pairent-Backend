@@ -1,5 +1,6 @@
 # src/app.py
 from flask import Flask
+from flask_cors import CORS
 from .routes.forum_routes import bp as forum_bp
 from .service.forum_service import ForumService
 from .auth import init_cognito
@@ -7,6 +8,7 @@ from .auth import init_cognito
 def create_app():
     app = Flask(__name__)
     app.config["FORUM_SERVICE"] = ForumService()
+    CORS(app)
     app.config.update(
         COGNITO_REGION="eu-north-1",
         COGNITO_USER_POOL_ID="eu-north-1_LRB1Cr2sA",

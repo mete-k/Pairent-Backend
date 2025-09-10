@@ -9,6 +9,9 @@ class QuestionRepo:
     """All Question persistence (DynamoDB)."""
     def create(q: Question) -> None:
         table.put_item(Item=q.to_item())
+        for tag in q.tags:
+            table
+
 
     def get(qid: str) -> Question | None:
         res = table.get_item(
@@ -88,25 +91,22 @@ class QuestionRepo:
             raise
 
     def unlike(qid: str) -> bool:
-        like = Like(qid=qid, user_id=g.user_sub)
+        like_key = Like(qid=qid, user_id=g.user_sub).key()
         like_item = table.get_item(
-            Key=like.key()
+            Key=like_key
         ).get("Item")
         if not like_item:
             return True
         
         try:
             table.update_item(
-                Key={
-                    "PK": "QUESTION",
-                    "SK": qid
-                },
+                Key=Question.key(qid),
                 UpdateExpression="ADD likes :dec",
                 ExpressionAttributeValues={":dec": -1},
                 ReturnValues="UPDATED_NEW"
             )
             table.delete_item(
-                Key=like.key()
+                Key=like_key
             )
             return True
         except ClientError as e:
@@ -121,7 +121,7 @@ class QuestionRepo:
         )
         return "Item" in res
 
-    def list_questions(self, limit: int, sort: str, last_key: dict[str, str] | None) -> tuple[list[Question], dict[str, object]]:
+    def list_questions(limit: int, sort: str, last_key: dict[str, str] | None) -> tuple[list[Question], dict[str, object]]:
         kwargs = {
             "IndexName": sort,
             "KeyConditionExpression": "gsi = :q",
@@ -134,7 +134,7 @@ class QuestionRepo:
 
         return table.query(**kwargs)
 
-    def list_questions_by_user(self, user_id: str, limit: int, last_key: dict[str, str] | None) -> dict[str, object]:
+    def list_questions_by_user(user_id: str, limit: int, last_key: dict[str, str] | None) -> dict[str, object]:
         kwargs = {
             "IndexName": "author",
             "KeyConditionExpression": "author = :q",

@@ -32,6 +32,10 @@ def ensure_table():
             AttributeDefinitions=[
                 {"AttributeName": "PK", "AttributeType": "S"},
                 {"AttributeName": "SK", "AttributeType": "S"},
+                {"AttributeName": "gsi", "AttributeType": "S"},
+                {"AttributeName": "likes", "AttributeType": "N"},
+                {"AttributeName": "date", "AttributeType": "S"},
+                {"AttributeName": "author", "AttributeType": "S"}
             ],
             ProvisionedThroughput={
                 'ReadCapacityUnits': 5,
@@ -46,7 +50,12 @@ def ensure_table():
                         {"AttributeName": "likes", "KeyType": "RANGE"}
                     ],
                     "Projection": {
-                        "ProjectionType": "KEYS_ONLY"
+                        "ProjectionType": "INCLUDE",
+                        "NonKeyAttributes": ["id", "title", "author", "tags", "date", "likes", "answers"]
+                    },
+                    "ProvisionedThroughput": {
+                        "ReadCapacityUnits": 5,
+                        "WriteCapacityUnits": 5
                     }
                 },
 
@@ -58,7 +67,12 @@ def ensure_table():
                         {"AttributeName": "date", "KeyType": "RANGE"}
                     ],
                     "Projection": {
-                        "ProjectionType": "KEYS_ONLY"
+                        "ProjectionType": "INCLUDE",
+                        "NonKeyAttributes": ["id", "title", "author", "tags", "date", "likes", "answers"]
+                    },
+                    "ProvisionedThroughput": {
+                        "ReadCapacityUnits": 5,
+                        "WriteCapacityUnits": 5
                     }
                 },
 
@@ -70,7 +84,12 @@ def ensure_table():
                         {"AttributeName": "date", "KeyType": "RANGE"},
                     ],
                     "Projection": {
-                        "ProjectionType": "KEYS_ONLY"
+                        "ProjectionType": "INCLUDE",
+                        "NonKeyAttributes": ["id", "title", "author", "tags", "date", "likes", "answers"]
+                    },
+                    "ProvisionedThroughput": {
+                        "ReadCapacityUnits": 5,
+                        "WriteCapacityUnits": 5
                     }
                 }
             ]
