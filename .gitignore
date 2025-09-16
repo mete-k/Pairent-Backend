@@ -6,6 +6,7 @@ __pycache__/
 *$py.class
 
 # Virtual environments
+venv/
 pairent_venv/
 
 # ---------------------------
@@ -20,5 +21,8 @@ test/
 # ---------------------------
 # VSCode
 .vscode/
+dynamodb-local-metadata.json
 # Windows
 Thumbs.db
+# MacOS
+.DS_Store

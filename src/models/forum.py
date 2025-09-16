@@ -1,4 +1,4 @@
-# src/models/question.py
+# src/models/forum.py
 from pydantic import BaseModel
 
 class Like(BaseModel):
@@ -39,3 +39,15 @@ def to_follow(item: dict[str, str] | None) -> Follow | None:
         qid=item["SK"],
         user_id=item["PK"].split("#")[1]
     )
+
+class Tag(BaseModel):
+    tag: str
+    qid: str
+    created_at: str
+
+    def to_item(self) -> dict[str, object]:
+        return {
+            "PK": f"TAG#{self.tag}",
+            "SK": self.created_at,
+            "qid": self.qid
+        }

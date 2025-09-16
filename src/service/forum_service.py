@@ -28,7 +28,7 @@ class ForumService:
         q = QuestionRepo.get(qid)
         return None if q is None else q.model_dump()
 
-    def edit_question(self, qid: str, title: str = None, body: str = None) -> dict[str, object] | None:
+    def edit_question(self, qid: str, title: str = "", body: str = "") -> dict[str, object] | None:
         authorship = _authorized(qid)
         if authorship == -1:
             return None
@@ -37,13 +37,12 @@ class ForumService:
         q = QuestionRepo.edit(qid=qid, title=title, body=body)
         return None if q is None else q.model_dump()
     
-    def delete_question(self, qid: str) -> bool:
+    def delete_question(self, qid: str) -> tuple[dict[str, str] | str, int]:
         authorship = _authorized(qid)
-        if authorship == -1:
-            return None
-        elif authorship == 0:
-            return {"error": "not_authorized"}
-        return QuestionRepo.delete(qid)
+        if authorship == 0:
+            return {"error": "not_authorized"}, 403
+        QuestionRepo.delete(qid)
+        return "", 204
 
     def like_question(self, qid: str) -> bool:
         return QuestionRepo.like(qid)
@@ -82,4 +81,4 @@ def _authorized(qid: str) -> int:
     q = QuestionRepo.get(qid)
     if not q:
         return -1
-    return int(g.user_sub == q.user_id)
+    return int(g.user_sub == q.author_id)

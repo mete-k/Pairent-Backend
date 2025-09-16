@@ -2,24 +2,27 @@
 from flask import g
 from ..db import forum_table as table
 from ..models.question import Question, to_question
-from ..models.like_follow import Like, Follow
+from ..models.forum import Like, Follow, Tag
 from botocore.exceptions import ClientError
 
 class QuestionRepo:
     """All Question persistence (DynamoDB)."""
+    @staticmethod
     def create(q: Question) -> None:
         table.put_item(Item=q.to_item())
         for tag in q.tags:
-            table
+            t = Tag(tag=tag, qid=q.qid, created_at=q.created_at)
+            table.put_item(t.to_item())
 
-
+    @staticmethod
     def get(qid: str) -> Question | None:
         res = table.get_item(
             Key=Question.key(qid)
         )
         return to_question(res.get("Item"))
 
-    def edit(qid: str, title: str = None, body: str = None, tags: list[str] = None) -> Question | None:
+    @staticmethod
+    def edit(qid: str, title: str = "", body: str = "", tags: list[str] = []) -> None:
         # Build UpdateExpression and values
         updateExpression = ""
         expr_attr_values = {}
@@ -55,20 +58,22 @@ class QuestionRepo:
                 ExpressionAttributeValues=expr_attr_values,
                 ReturnValues="ALL_NEW"
             )
-            return to_question(res.get("Attributes"))
+            # return to_question(res.get("Attributes"))
         except Exception as e:
             print(f"Failed to update question {qid}: {e}")
-            return None
+            # return None
 
+    @staticmethod
     def delete(qid: str) -> bool:
         resp = table.delete_item(
             Key=Question.key(qid),
             ReturnValues="ALL_OLD"
         )
         return "Attributes" in resp
-    
+
+    @staticmethod
     def like(qid: str) -> bool:
-        like = Like(qid=qid, user_id=g.user_sub)
+        like = Like(qid=qid, user_id=g.user_sub, liked_id=qid)
         like_item = table.get_item(
             Key=like.key()
         ).get("Item")
@@ -90,8 +95,9 @@ class QuestionRepo:
                 return False
             raise
 
+    @staticmethod
     def unlike(qid: str) -> bool:
-        like_key = Like(qid=qid, user_id=g.user_sub).key()
+        like_key = Like(qid=qid, user_id=g.user_sub, liked_id=qid).key()
         like_item = table.get_item(
             Key=like_key
         ).get("Item")
@@ -114,14 +120,16 @@ class QuestionRepo:
                 return False
             raise
     
+    @staticmethod
     def get_like(qid: str) -> bool:
-        like = Like(qid=qid, user_id=g.user_sub)
+        like = Like(qid=qid, user_id=g.user_sub, liked_id=qid)
         res = table.get_item(
             Key=like.key()
         )
         return "Item" in res
 
-    def list_questions(limit: int, sort: str, last_key: dict[str, str] | None) -> tuple[list[Question], dict[str, object]]:
+    @staticmethod
+    def list_questions(limit: int, sort: str, last_key: dict[str, str] | None) -> dict[str, object]:
         kwargs = {
             "IndexName": sort,
             "KeyConditionExpression": "gsi = :q",
@@ -134,6 +142,7 @@ class QuestionRepo:
 
         return table.query(**kwargs)
 
+    @staticmethod
     def list_questions_by_user(user_id: str, limit: int, last_key: dict[str, str] | None) -> dict[str, object]:
         kwargs = {
             "IndexName": "author",

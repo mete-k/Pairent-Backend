@@ -1,4 +1,7 @@
-PyJWT
-requests
 flask
 boto3
+PyJWT
+requests
+flask_cors
+pydantic
+cryptography

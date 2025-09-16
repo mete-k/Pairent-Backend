@@ -81,12 +81,7 @@ def edit_question(qid):
 @cognito_auth_required
 def delete_question(qid):
     svc = current_app.config["FORUM_SERVICE"]
-    deleted = svc.delete_question(qid=qid)
-    if not deleted:
-        return {"error": "question_not_found"}, 404
-    if "error" in deleted:
-        return deleted, 400
-    return "", 204
+    return svc.delete_question(qid=qid)
 
 @bp.post("/questions/<qid>/like")
 @cognito_auth_required
@@ -112,3 +107,8 @@ def get_like_question(qid):
     liked = svc.get_like_question(qid)
     return {"liked": liked}, 200
 
+@bp.post("/questions/<qid>")
+@cognito_auth_required
+def post_answer(qid):
+    svc = current_app.config["FORUM_SERVICE"]
+    return svc.post_answer(qid)

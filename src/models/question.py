@@ -35,11 +35,8 @@ class Question(BaseModel):
             "likes": self.likes,
             "answers": self.answer_count
         }
-    def key(self) -> dict[str, str]:
-        return {
-            "PK": f"QUESTION#{self.qid}",
-            "SK": "!"
-        }
+
+    @staticmethod
     def key(qid: str) -> dict[str, str]:
         return {
             "PK": f"QUESTION#{qid}",

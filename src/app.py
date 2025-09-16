@@ -8,7 +8,6 @@ from .auth import init_cognito
 def create_app():
     app = Flask(__name__)
     app.config["FORUM_SERVICE"] = ForumService()
-    CORS(app)
     app.config.update(
         COGNITO_REGION="eu-north-1",
         COGNITO_USER_POOL_ID="eu-north-1_LRB1Cr2sA",
@@ -17,6 +16,8 @@ def create_app():
     init_cognito(app)
 
     app.register_blueprint(forum_bp)
+
+    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
     @app.get("/health")
     def health(): return {"ok": True}, 200
