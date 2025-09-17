@@ -15,7 +15,7 @@ class QuestionRepo:
             table.put_item(t.to_item())
 
     @staticmethod
-    def get(qid: str) -> Question | None:
+    def get_question(qid: str) -> Question | None:
         res = table.get_item(
             Key=Question.key(qid)
         )

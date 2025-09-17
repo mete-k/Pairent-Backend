@@ -24,8 +24,8 @@ class ForumService:
         QuestionRepo.create(q)
         return {"qid": q.qid}
 
-    def get_question(self, qid: str) -> dict[str, object] | None:
-        q = QuestionRepo.get(qid)
+    def get_question(self, qid: str, content: str) -> dict[str, object] | None:
+        q = QuestionRepo.get_question(qid)
         return None if q is None else q.model_dump()
 
     def edit_question(self, qid: str, title: str = "", body: str = "") -> dict[str, object] | None:
@@ -78,7 +78,7 @@ class ForumService:
     # def list_questions_with_tag
 
 def _authorized(qid: str) -> int:
-    q = QuestionRepo.get(qid)
+    q = QuestionRepo.get_question(qid)
     if not q:
         return -1
     return int(g.user_sub == q.author_id)

@@ -6,9 +6,25 @@ from ..auth import cognito_auth_required # Import the decorator
 
 bp = Blueprint("forum", __name__)
 
+# ---- Questions ----
+# Post a question
 @bp.post("/questions")
-@cognito_auth_required # Apply the decorator
+@cognito_auth_required
 def post_question():
+    '''
+    Expected headers:
+        {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer {accessToken}"
+        }
+    Expected body:
+        {
+            title: String,
+            body: String,
+            tags: [String],
+            age: Number
+        }
+    '''
     svc = current_app.config["FORUM_SERVICE"]
     try:
         payload = QuestionCreate.model_validate_json(request.data or b"{}")
@@ -17,8 +33,15 @@ def post_question():
     except ValidationError as e:
         return jsonify({"error": "validation", "details": e.errors()}), 400
 
+# List questions with optional query parameters
 @bp.get("/questions")
 def list_questions():
+    '''
+    Expected query parameters (optional):
+        sort: "new" | "popular"
+        limit: Number   // number of questions requested
+        after: json     // provided by backend at last query as ExclusiveStartKey
+    '''
     # Get search parameters with default values
     sort = request.args.get("sort", "new")
     last_key = request.args.get("after")
@@ -32,9 +55,15 @@ def list_questions():
         return res, 400
     return res, 200
 
+# Get questions posted by user
 @bp.get("/questions/me")
 @cognito_auth_required
 def get_own_questions():
+    '''
+    Expected query parameters (optional):
+        limit: Number
+        after: json // Provided by backend at last query as ExclusiveStartKey
+    '''
     # Get search parameters with default values
     last_key = request.args.get("after")
     limit = int(request.args.get("limit", 10))
@@ -47,10 +76,17 @@ def get_own_questions():
         return res, 400
     return res, 200
 
+# Get a specific question and related answers etc.
 @bp.get("/questions/<qid>")
 def get_question(qid):
+    '''
+    Expected query parameters (optional):
+        content: "all" | "question"
+    '''
+    # Not implemented yet
+    cont: str = request.args.get("content", "all")
     svc = current_app.config["FORUM_SERVICE"]
-    doc = svc.get_question(qid)
+    doc = svc.get_question(qid, cont)
     if not doc:
         return {"error": "not_found"}, 404
     return doc, 200
@@ -83,6 +119,7 @@ def delete_question(qid):
     svc = current_app.config["FORUM_SERVICE"]
     return svc.delete_question(qid=qid)
 
+# ---- Like related routes ----
 @bp.post("/questions/<qid>/like")
 @cognito_auth_required
 def like_question(qid):
