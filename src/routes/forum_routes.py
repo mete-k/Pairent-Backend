@@ -94,6 +94,19 @@ def get_question(qid):
 @bp.put("/questions/<qid>")
 @cognito_auth_required # Apply the decorator
 def edit_question(qid):
+    '''
+    Expected headers:
+        {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer {accessToken}"
+        }
+    Expected body (each attribute optional):
+        {
+            title: String,
+            body: String,
+            tags: [String]
+        }
+    '''
     svc = current_app.config["FORUM_SERVICE"]
     payload = request.get_json()
     if not payload:
@@ -116,6 +129,12 @@ def edit_question(qid):
 @bp.delete("/questions/<qid>")
 @cognito_auth_required
 def delete_question(qid):
+    '''
+    Expected headers:
+        {
+            "Authorization": "Bearer {accessToken}"
+        }
+    '''
     svc = current_app.config["FORUM_SERVICE"]
     return svc.delete_question(qid=qid)
 
@@ -123,6 +142,12 @@ def delete_question(qid):
 @bp.post("/questions/<qid>/like")
 @cognito_auth_required
 def like_question(qid):
+    '''
+    Expected headers:
+        {
+            "Authorization": "Bearer {accessToken}"
+        }
+    '''
     svc = current_app.config["FORUM_SERVICE"]
     if svc.like_question(qid):
         return "", 204
@@ -132,6 +157,12 @@ def like_question(qid):
 @bp.delete("/questions/<qid>/like")
 @cognito_auth_required
 def unlike_question(qid):
+    '''
+    Expected headers:
+        {
+            "Authorization": "Bearer {accessToken}"
+        }
+    '''
     svc = current_app.config["FORUM_SERVICE"]
     if svc.unlike_question(qid):
         return "", 204
@@ -147,5 +178,8 @@ def get_like_question(qid):
 @bp.post("/questions/<qid>")
 @cognito_auth_required
 def post_answer(qid):
+    '''
+    TODO: implement answers
+    '''
     svc = current_app.config["FORUM_SERVICE"]
     return svc.post_answer(qid)
