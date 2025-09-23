@@ -21,7 +21,7 @@ def post_question():
         {
             title: String,
             body: String,
-            tags: [String],
+            tags: [String], // list of strings
             age: Number
         }
     '''
@@ -212,6 +212,21 @@ def save_question(qid):
     '''
     svc = current_app.config["FORUM_SERVICE"]
     if svc.save_question(qid):
+        return "", 204
+    else:
+        return {"error": "question_not_found"}, 404
+
+@bp.delete("questions/<qid>/save")
+@cognito_auth_required
+def unsave_question(qid):
+    '''
+    Expected headers:
+        {
+            "Authorization": "Bearer {accessToken}"
+        }
+    '''
+    svc = current_app.config["FORUM_SERVICE"]
+    if svc.unsave_question(qid):
         return "", 204
     else:
         return {"error": "question_not_found"}, 404

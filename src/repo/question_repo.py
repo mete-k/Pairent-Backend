@@ -187,7 +187,7 @@ def save_question(qid: str) -> bool:
 def unsave_question(qid: str) -> bool:
     key = Save(qid=qid, user_id=g.user_sub).key()
     try:
-        item = table.delete_item(
+        table.delete_item(
             Key=key
         )
         return True

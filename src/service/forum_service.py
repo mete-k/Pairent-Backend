@@ -61,6 +61,8 @@ class ForumService:
     
     def save_question(self, qid: str) -> bool:
         return QuestionRepo.save_question(qid=qid)
+    def unsave_question(self, qid: str) -> bool:
+        return QuestionRepo.unsave_question(qid=qid)
 
     def list_questions(self, direction: str, limit: int, sort: str, last_key: dict[str, str] | None) -> dict[str, object]:
         if sort in ['popular', 'new']:
