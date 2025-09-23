@@ -10,19 +10,21 @@ from ..models.profile import (
     Vaccine,
     VaccineCreate,
     FriendRequest,
+    PrivacyLevel
 )
 from ..repo import profile_repo as repo
+from ..db import profile_table as table
 from typing import Any
 
 
 class ProfileService:
-    def __init__(self, repo):
-        self.repo = repo
+    def __init__(self):
+        pass
 
     # ---- Profile ----
     def create_profile(self, user_id: str, payload: dict) -> dict[str, object]:
         # Default privacy settings
-        default_privacy = {
+        default_privacy: dict[str, PrivacyLevel] = {
             "name": "public",
             "dob": "friends",
             "friends": "friends"
@@ -35,38 +37,38 @@ class ProfileService:
             friends=[],
             profile_privacy=default_privacy
         )
-        self.repo.put_item(profile.to_item())
+        table.put_item(profile.to_item())
         return profile.model_dump()
 
     def get_my_profile(self, user_id: str) -> dict[str, Any]:
-        profile = self.repo.get_profile(user_id)
+        profile = repo.get_profile(user_id)
         return profile
 
     def update_my_profile(self, user_id: str, payload: ProfileUpdate) -> dict[str, Any]:
-        updated = self.repo.update_profile(user_id, payload.model_dump(exclude_none=True))
+        updated = repo.update_profile(user_id, payload.model_dump(exclude_none=True))
         return updated
 
     def get_user_profile(self, viewer_id: str, user_id: str) -> dict[str, Any]:
-        profile = self.repo.get_profile(user_id)
+        profile = repo.get_profile(user_id)
         return self._apply_privacy(profile, viewer_id)
 
     # ---- Children ----
     def add_child(self, user_id: str, payload: ChildCreate) -> dict[str, Any]:
         child = Child(
             user_id=user_id,
-            child_id=self.repo.new_child_id(user_id),
+            child_id=repo.new_child_id(user_id),
             name=payload.name,
             dob=payload.dob,
             privacy={"milestones": "public", "growth": "private", "vaccines": "friends"},
         )
-        self.repo.put_item(child.to_item())
+        table.put_item(child.to_item())
         return child.model_dump()
 
     def update_child(self, user_id: str, child_id: str, payload: ChildUpdate) -> dict[str, Any]:
-        return self.repo.update_child(user_id, child_id, payload.model_dump(exclude_none=True))
+        return repo.update_child(user_id, child_id, payload.model_dump(exclude_none=True))
 
     def delete_child(self, user_id: str, child_id: str) -> None:
-        self.repo.delete_child(user_id, child_id)
+        repo.delete_child(user_id, child_id)
 
     def add_growth(self, user_id: str, child_id: str, payload: GrowthCreate) -> dict[str, Any]:
         growth = Growth(
@@ -76,7 +78,7 @@ class ProfileService:
             height=payload.height,
             weight=payload.weight,
         )
-        self.repo.put_item(growth.to_item())
+        table.put_item(growth.to_item())
         return growth.model_dump()
 
     def add_vaccine(self, user_id: str, child_id: str, payload: VaccineCreate) -> dict[str, Any]:
@@ -87,29 +89,29 @@ class ProfileService:
             date=payload.date,
             status=payload.status,
         )
-        self.repo.put_item(vaccine.to_item())
+        table.put_item(vaccine.to_item())
         return vaccine.model_dump()
 
     # ---- Friends ----
     def send_friend_request(self, sender_id: str, receiver_id: str) -> dict[str, Any]:
         req = FriendRequest(from_id=sender_id, to_id=receiver_id, status="pending")
-        self.repo.put_item(req.to_item())
+        table.put_item(req.to_item())
         return req.model_dump()
 
     def accept_friend_request(self, receiver_id: str, sender_id: str) -> dict[str, Any]:
         # delete request
-        self.repo.delete_item(FriendRequest.key(receiver_id, sender_id))
+        table.delete_item(FriendRequest.key(receiver_id, sender_id))
         # add to each other's friend list
-        self.repo.add_friend(receiver_id, sender_id)
-        self.repo.add_friend(sender_id, receiver_id)
+        repo.add_friend(receiver_id, sender_id)
+        repo.add_friend(sender_id, receiver_id)
         return {"accepted": True}
 
     def list_friend_requests(self, user_id: str) -> list[dict[str, Any]]:
-        return self.repo.get_friend_requests(user_id)
+        return repo.get_friend_requests(user_id)
 
     def remove_friend(self, user_id: str, friend_id: str) -> None:
-        self.repo.remove_friend(user_id, friend_id)
-        self.repo.remove_friend(friend_id, user_id)
+        repo.remove_friend(user_id, friend_id)
+        repo.remove_friend(friend_id, user_id)
 
     # ---- Privacy ----
     def _apply_privacy(self, profile: dict[str, Any], viewer_id: str) -> dict[str, Any]:

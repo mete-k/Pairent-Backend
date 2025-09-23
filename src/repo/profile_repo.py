@@ -4,7 +4,7 @@ from boto3.dynamodb.conditions import Key
 from ..models.profile import Profile, Child, Growth, Vaccine, FriendRequest
 
 # ---- Profile ----
-def create_profile(self, profile: Profile) -> dict[str, object]:
+def create_profile(profile: Profile) -> dict[str, object]:
     item = profile.to_item()
     table.put_item(
         Item=item,
@@ -12,11 +12,11 @@ def create_profile(self, profile: Profile) -> dict[str, object]:
     )
     return item
 
-def get_profile(self, user_id: str) -> dict[str, object]:
+def get_profile(user_id: str) -> dict[str, object]:
     res = table.get_item(Key=Profile.key(user_id))
     return res.get("Item", {})
 
-def update_profile(self, user_id: str, payload: dict[str, object]) -> dict[str, object]:
+def update_profile(user_id: str, payload: dict[str, object]) -> dict[str, object]:
     """Update profile fields like privacy or children list (friends not handled here)."""
     key = Profile.key(user_id)
     expr = []
@@ -34,16 +34,16 @@ def update_profile(self, user_id: str, payload: dict[str, object]) -> dict[str, 
     return res["Attributes"]
 
 # ---- Children ----
-def new_child_id(self, user_id: str) -> str:
+def new_child_id(user_id: str) -> str:
     # naive ID generation, in practice UUID preferred
     import uuid
     return str(uuid.uuid4())
 
-def add_child(self, user_id: str, child: dict[str, object]) -> dict[str, object]:
+def add_child(user_id: str, child: dict[str, object]) -> dict[str, object]:
     table.put_item(Item=child)
     return child
 
-def update_child(self, user_id: str, child_id: str, updates: dict[str, object]) -> dict[str, object]:
+def update_child(user_id: str, child_id: str, updates: dict[str, object]) -> dict[str, object]:
     key = Child.key(user_id, child_id)
     expr = []
     values = {}
@@ -59,21 +59,21 @@ def update_child(self, user_id: str, child_id: str, updates: dict[str, object]) 
     )
     return res["Attributes"]
 
-def delete_child(self, user_id: str, child_id: str) -> None:
+def delete_child(user_id: str, child_id: str) -> None:
     table.delete_item(Key=Child.key(user_id, child_id))
 
-def add_growth(self, growth: Growth) -> dict[str, object]:
+def add_growth(growth: Growth) -> dict[str, object]:
     item = growth.to_item()
     table.put_item(Item=item)
     return item
 
-def add_vaccine(self, vaccine: Vaccine) -> dict[str, object]:
+def add_vaccine(vaccine: Vaccine) -> dict[str, object]:
     item = vaccine.to_item()
     table.put_item(Item=item)
     return item
 
 # ---- Friends ----
-def add_friend(self, user_id: str, friend_id: str) -> None:
+def add_friend(user_id: str, friend_id: str) -> None:
     key = Profile.key(user_id)
     table.update_item(
         Key=key,
@@ -84,10 +84,10 @@ def add_friend(self, user_id: str, friend_id: str) -> None:
         }
     )
 
-def remove_friend(self, user_id: str, friend_id: str) -> None:
+def remove_friend(user_id: str, friend_id: str) -> None:
     # fetch current list
-    profile = self.get_profile(user_id)
-    friends = profile.get("friends", [])
+    profile = get_profile(user_id)
+    friends: list = profile.get("friends", []) # type: ignore
     if friend_id in friends:
         friends.remove(friend_id)
         table.update_item(
@@ -97,15 +97,15 @@ def remove_friend(self, user_id: str, friend_id: str) -> None:
         )
 
 # ---- Friend Requests ----
-def create_friend_request(self, request: FriendRequest) -> dict[str, object]:
+def create_friend_request(request: FriendRequest) -> dict[str, object]:
     item = request.to_item()
     table.put_item(Item=item)
     return item
 
-def accept_friend_request(self, receiver_id: str, sender_id: str) -> None:
+def accept_friend_request(receiver_id: str, sender_id: str) -> None:
     table.delete_item(Key=FriendRequest.key(receiver_id, sender_id))
 
-def get_friend_requests(self, user_id: str) -> list[dict[str, object]]:
+def get_friend_requests(user_id: str) -> list[dict[str, object]]:
     res = table.query(
         KeyConditionExpression=Key("PK").eq(f"USER#{user_id}") & Key("SK").begins_with("FRIEND_REQUEST#")
     )
