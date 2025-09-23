@@ -38,18 +38,20 @@ def post_question():
 def list_questions():
     '''
     Expected query parameters (optional):
-        sort: "new" | "popular"
-        limit: Number   // number of questions requested
-        after: json     // provided by backend at last query as ExclusiveStartKey
+        sort: "new" | "popular"                 // default "new"
+        direction: "ascending" | "descending"   // default "descending"
+        limit: Number                           // number of questions requested with default 10
+        after: json                             // provided by backend at last query as ExclusiveStartKey
     '''
     # Get search parameters with default values
     sort = request.args.get("sort", "new")
+    dir = request.args.get("direction", "descending")
     last_key = request.args.get("after")
     limit = int(request.args.get("limit", 10))
 
     # Hand over to service
     svc = current_app.config["FORUM_SERVICE"]
-    res = svc.list_questions(limit=limit, sort=sort, last_key=last_key)
+    res = svc.list_questions(direction = dir, limit=limit, sort=sort, last_key=last_key)
 
     if "error" in res:
         return res, 400
@@ -62,6 +64,29 @@ def get_own_questions():
     '''
     Expected query parameters (optional):
         limit: Number
+        direction: "ascending" | "descending"   // default "descending"
+        after: json // Provided by backend at last query as ExclusiveStartKey
+    '''
+    # Get search parameters with default values
+    last_key = request.args.get("after")
+    limit = int(request.args.get("limit", 10))
+    dir = request.args.get("direction", "descending")
+
+    # Hand over to service
+    svc = current_app.config["FORUM_SERVICE"]
+    res = svc.list_questions_by_user(direction=dir, limit=limit, last_key=last_key)
+
+    if "error" in res:
+        return res, 400
+    return res, 200
+
+# Get saved questions
+@bp.get("/questions/saved")
+@cognito_auth_required
+def get_saved_questions():
+    '''
+    Expected query parameters (optional):
+        limit: Number
         after: json // Provided by backend at last query as ExclusiveStartKey
     '''
     # Get search parameters with default values
@@ -70,7 +95,7 @@ def get_own_questions():
 
     # Hand over to service
     svc = current_app.config["FORUM_SERVICE"]
-    res = svc.list_questions_by_user(limit=limit, last_key=last_key)
+    res = svc.list_saved_questions(limit=limit, last_key=last_key)
 
     if "error" in res:
         return res, 400
@@ -83,7 +108,6 @@ def get_question(qid):
     Expected query parameters (optional):
         content: "all" | "question"
     '''
-    # Not implemented yet
     cont: str = request.args.get("content", "all")
     svc = current_app.config["FORUM_SERVICE"]
     doc = svc.get_question(qid, cont)
@@ -91,6 +115,7 @@ def get_question(qid):
         return {"error": "not_found"}, 404
     return doc, 200
 
+# Edit the question
 @bp.put("/questions/<qid>")
 @cognito_auth_required # Apply the decorator
 def edit_question(qid):
@@ -138,7 +163,7 @@ def delete_question(qid):
     svc = current_app.config["FORUM_SERVICE"]
     return svc.delete_question(qid=qid)
 
-# ---- Like related routes ----
+# ---- Like routes ----
 @bp.post("/questions/<qid>/like")
 @cognito_auth_required
 def like_question(qid):
@@ -175,11 +200,25 @@ def get_like_question(qid):
     liked = svc.get_like_question(qid)
     return {"liked": liked}, 200
 
-@bp.post("/questions/<qid>")
+# ---- Save routes ----
+@bp.post("questions/<qid>/save")
 @cognito_auth_required
-def post_answer(qid):
+def save_question(qid):
     '''
-    TODO: implement answers
+    Expected headers:
+        {
+            "Authorization": "Bearer {accessToken}"
+        }
     '''
     svc = current_app.config["FORUM_SERVICE"]
-    return svc.post_answer(qid)
+    if svc.save_question(qid):
+        return "", 204
+    else:
+        return {"error": "question_not_found"}, 404
+
+# ---- Reply routes ----
+@bp.post("/questions/<qid>/reply")
+@cognito_auth_required
+def post_reply(qid):
+    svc = current_app.config["FORUM_SERVICE"]
+    return svc.create_reply(qid)

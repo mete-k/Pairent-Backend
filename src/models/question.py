@@ -18,14 +18,14 @@ class Question(BaseModel):
     age: int
     created_at: str
     likes: int
-    answer_count: int
+    reply_count: int
 
     def to_item(self) -> dict:
         return {
             "PK": f"QUESTION#{self.qid}",
             "SK": "!",
             "gsi": "Y",
-            "id": self.qid,
+            "qid": self.qid,
             "title": self.title,
             "body": self.body,
             "author": self.author_id,
@@ -33,7 +33,7 @@ class Question(BaseModel):
             "age": self.age,
             "date": self.created_at,
             "likes": self.likes,
-            "answers": self.answer_count
+            "replies": self.reply_count
         }
 
     @staticmethod
@@ -47,7 +47,7 @@ def to_question(item: dict | None) -> Question | None:
     if not item:
         return None
     return Question(
-        qid=item["id"],
+        qid=item["qid"],
         title=item["title"],
         body=item.get("body", ""),
         author_id=item["author"],
@@ -55,9 +55,5 @@ def to_question(item: dict | None) -> Question | None:
         age=item.get("age", 0),
         created_at=item["date"],
         likes=item.get("likes", 0),
-        answer_count=item.get("answers", 0)
+        reply_count=item.get("replies", 0)
     )
-
-class Tag(BaseModel):
-    tag: str
-    qid: int

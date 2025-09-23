@@ -3,8 +3,10 @@ import uuid
 from flask import g
 from datetime import datetime, timezone
 from ..db import ensure_table
-from ..repo.question_repo import QuestionRepo
+from ..repo import question_repo as QuestionRepo
+from ..repo import reply_repo as ReplyRepo
 from ..models.question import QuestionCreate, Question
+from ..models.reply import ReplyCreate, Reply
 
 class ForumService:
     def __init__(self) -> None:
@@ -19,14 +21,20 @@ class ForumService:
             age=payload.age,
             created_at=datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S"),
             likes=0,
-            answer_count=0
+            reply_count=0
         )
         QuestionRepo.create(q)
         return {"qid": q.qid}
 
     def get_question(self, qid: str, content: str) -> dict[str, object] | None:
-        q = QuestionRepo.get_question(qid)
-        return None if q is None else q.model_dump()
+        if content == "question":
+            q = QuestionRepo.get_question(qid)
+            return None if q is None else q.model_dump()
+        elif content == "all":
+            forum = QuestionRepo.get_forum(qid, all=False)
+            return forum
+        else:
+            return {"error": "invalid_query_parameter"}
 
     def edit_question(self, qid: str, title: str = "", body: str = "") -> dict[str, object] | None:
         authorship = _authorized(qid)
@@ -50,10 +58,20 @@ class ForumService:
         return QuestionRepo.unlike(qid)
     def get_like_question(self, qid: str) -> bool:
         return QuestionRepo.get_like(qid)
+    
+    def save_question(self, qid: str) -> bool:
+        return QuestionRepo.save_question(qid=qid)
 
-    def list_questions(self, limit: int, sort: str, last_key: dict[str, str] | None) -> dict[str, object]:
+    def list_questions(self, direction: str, limit: int, sort: str, last_key: dict[str, str] | None) -> dict[str, object]:
         if sort in ['popular', 'new']:
-            res = QuestionRepo.list_questions(limit=limit, sort=sort, last_key=last_key)
+            match direction:
+                case 'descending' | 'desc':
+                    dir = False
+                case 'ascending' | 'asc':
+                    dir = True
+                case _:
+                    return {"error": "invalid_direction_parameter"}
+            res = QuestionRepo.list_questions(direction=dir, limit=limit, sort=sort, last_key=last_key)
         else:
             return {"error": "invalid_sort_parameter"}
         cursor = res.get("LastEvaluatedKey")
@@ -64,8 +82,15 @@ class ForumService:
                 "endCursor": cursor
             }
         }
-    def list_questions_by_user(self, limit: int, last_key: dict[str, str] | None) -> dict[str, object]:
-        res = QuestionRepo.list_questions_by_user(user_id=g.user_sub, limit=limit, last_key=last_key)
+    def list_questions_by_user(self, direction: str, limit: int, last_key: dict[str, str] | None) -> dict[str, object]:
+        match direction:
+            case 'descending' | 'desc':
+                dir = False
+            case 'ascending' | 'asc':
+                dir = True
+            case _:
+                return {"error": "invalid_direction_parameter"}
+        res = QuestionRepo.list_questions_by_user(direction=dir, limit=limit, last_key=last_key)
         cursor = res.get("LastEvaluatedKey")
         return {
             "items": res["Items"],
@@ -75,7 +100,74 @@ class ForumService:
             }
         }
 
+    def list_saved_questions(self, limit: int, last_key: dict[str, str] | None) -> dict[str, object]:
+        limit = max(1, min(limit, 20))  # enforce 1 <= limit <= 20
+        saves_res = QuestionRepo.get_saves(limit=limit, last_key=last_key)
+        cursor = saves_res.get("LastEvaluatedKey")
+        saves = saves_res.get("Items", [])
+        qids = [s["SK"].split('#')[1] for s in saves]
+        questions = QuestionRepo.get_questions_by_qids(qids)
+        
+        return {
+            "items": [q.model_dump() for q in questions if q],
+            "pageInfo": {
+                "hasNextPage": False if cursor == None else True,
+                "endCursor": cursor
+            }
+        }
+    
     # def list_questions_with_tag
+
+    # ---- Replies ----
+    def create_reply(self, qid: str, payload: dict) -> dict[str, object] | tuple[dict[str, object], int]:
+        try:
+            data = ReplyCreate(**payload)
+        except Exception as e:
+            return {"error": "validation", "details": str(e)}, 400
+
+        rid = uuid.uuid4().hex
+        reply = Reply(
+            qid=qid,
+            rid=rid,
+            parent_id=data.parent_id,
+            user_id=g.user_sub,
+            body=data.body.strip(),
+            created_at=datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S"),
+            likes=0,
+            reply_count=0
+        )
+        ReplyRepo.create(reply)
+        return {"rid": rid}
+
+    def get_reply(self, qid: str, rid: str) -> dict[str, object] | None:
+        reply = ReplyRepo.get_reply(qid, rid)
+        return None if reply is None else reply.model_dump()
+    
+    def edit_reply(self, qid: str, rid: str, payload: dict) -> dict[str, object] | tuple[dict[str, object], int]:
+        reply = ReplyRepo.get_reply(qid, rid)
+        if not reply:
+            return {"error": "not_found"}, 404
+        if reply.user_id != g.user_sub:
+            return {"error": "not_authorized"}, 403
+        body = payload.get("body", "")
+        if not body:
+            return {"error": "meaningless_request"}, 400
+        ReplyRepo.edit(qid, rid, body)
+        updated = ReplyRepo.get_reply(qid, rid)
+        return updated.model_dump() if updated else {"error": "not_found"}, 200
+
+    def delete_reply(self, qid: str, rid: str) -> tuple[dict[str, object], int] | int:
+        reply = ReplyRepo.get_reply(qid, rid)
+        if not reply:
+            return {"error": "not_found"}, 404
+        if reply.user_id != g.user_sub:
+            return {"error": "not_authorized"}, 403
+        ok = ReplyRepo.delete(qid, rid)
+        if ok:
+            return 204
+        else:
+            return {"error": "delete_failed"}, 500
+
 
 def _authorized(qid: str) -> int:
     q = QuestionRepo.get_question(qid)

@@ -19,9 +19,13 @@ dynamodb_client = boto3.client(
 )
 
 forum_table = dynamodb.Table("Forum")
+profile_table = dynamodb.Table("Profile")
+
 
 def ensure_table():
     existing_tables = dynamodb_client.list_tables()['TableNames']
+
+    # Forum table
     if "Forum" not in existing_tables:
         dynamodb.create_table(
             TableName="Forum",
@@ -32,66 +36,25 @@ def ensure_table():
             AttributeDefinitions=[
                 {"AttributeName": "PK", "AttributeType": "S"},
                 {"AttributeName": "SK", "AttributeType": "S"},
-                {"AttributeName": "gsi", "AttributeType": "S"},
-                {"AttributeName": "likes", "AttributeType": "N"},
-                {"AttributeName": "date", "AttributeType": "S"},
-                {"AttributeName": "author", "AttributeType": "S"}
             ],
-            ProvisionedThroughput={
-                'ReadCapacityUnits': 5,
-                'WriteCapacityUnits': 5
-            },
-            GlobalSecondaryIndexes=[
-                # 1. By popularity
-                {
-                    "IndexName": "popular",
-                    "KeySchema": [
-                        {"AttributeName": "gsi", "KeyType": "HASH"},
-                        {"AttributeName": "likes", "KeyType": "RANGE"}
-                    ],
-                    "Projection": {
-                        "ProjectionType": "INCLUDE",
-                        "NonKeyAttributes": ["id", "title", "author", "tags", "date", "likes", "answers"]
-                    },
-                    "ProvisionedThroughput": {
-                        "ReadCapacityUnits": 5,
-                        "WriteCapacityUnits": 5
-                    }
-                },
-
-                # 2. By Recency
-                {
-                    "IndexName": "new",
-                    "KeySchema": [
-                        {"AttributeName": "gsi", "KeyType": "HASH"},
-                        {"AttributeName": "date", "KeyType": "RANGE"}
-                    ],
-                    "Projection": {
-                        "ProjectionType": "INCLUDE",
-                        "NonKeyAttributes": ["id", "title", "author", "tags", "date", "likes", "answers"]
-                    },
-                    "ProvisionedThroughput": {
-                        "ReadCapacityUnits": 5,
-                        "WriteCapacityUnits": 5
-                    }
-                },
-
-                # 3. Questions by Author
-                {
-                    "IndexName": "author",
-                    "KeySchema": [
-                        {"AttributeName": "author", "KeyType": "HASH"},
-                        {"AttributeName": "date", "KeyType": "RANGE"},
-                    ],
-                    "Projection": {
-                        "ProjectionType": "INCLUDE",
-                        "NonKeyAttributes": ["id", "title", "author", "tags", "date", "likes", "answers"]
-                    },
-                    "ProvisionedThroughput": {
-                        "ReadCapacityUnits": 5,
-                        "WriteCapacityUnits": 5
-                    }
-                }
-            ]
+            BillingMode="PAY_PER_REQUEST"
         )
-        forum_table.wait_until_exists()
+
+    # Profile table
+    if "Profile" not in existing_tables:
+        dynamodb.create_table(
+            TableName="Profile",
+            KeySchema=[
+                {"AttributeName": "PK", "KeyType": "HASH"},
+                {"AttributeName": "SK", "KeyType": "RANGE"},
+            ],
+            AttributeDefinitions=[
+                {"AttributeName": "PK", "AttributeType": "S"},
+                {"AttributeName": "SK", "AttributeType": "S"},
+            ],
+            BillingMode="PAY_PER_REQUEST"
+        )
+
+    # Wait until tables are created
+    dynamodb_client.get_waiter('table_exists').wait(TableName="Forum")
+    dynamodb_client.get_waiter('table_exists').wait(TableName="Profile")
