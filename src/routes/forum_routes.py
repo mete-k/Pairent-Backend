@@ -33,6 +33,7 @@ def post_question():
     except ValidationError as e:
         return jsonify({"error": "validation", "details": e.errors()}), 400
 
+# -- Listing questions --
 # List questions with optional query parameters
 @bp.get("/questions")
 def list_questions():
@@ -96,6 +97,56 @@ def get_saved_questions():
     # Hand over to service
     svc = current_app.config["FORUM_SERVICE"]
     res = svc.list_saved_questions(limit=limit, last_key=last_key)
+
+    if "error" in res:
+        return res, 400
+    return res, 200
+
+# List questions with specific tag
+@bp.get("/questions/tag/<tag>")
+def get_questions_with_tag(tag):
+    '''
+    Expected query parameters (optional):
+        limit: Number                           // number of questions requested with default 10
+        direction: "ascending" | "descending"   // default "descending"
+        after: json                             // provided by backend at last query as ExclusiveStartKey
+    '''
+    # Get search parameters with default values
+    last_key = request.args.get("after")
+    limit = int(request.args.get("limit", 10))
+    dir = request.args.get("direction", "descending")
+
+    # Hand over to service
+    svc = current_app.config["FORUM_SERVICE"]
+    res = svc.list_questions_with_tag(tag=tag, direction=dir, limit=limit, last_key=last_key)
+
+    if "error" in res:
+        return res, 400
+    return res, 200
+
+# Search questions by text
+@bp.get("/questions/search")
+def search_questions():
+    '''
+    Expected query parameters:
+        q: String                               // search query
+    Optional query parameters:
+        limit: Number                           // number of questions requested with default 10
+        direction: "ascending" | "descending"   // default "descending"
+        after: json                             // provided by backend at last query as ExclusiveStartKey
+    '''
+    # Get search parameters with default values
+    query = request.args.get("q", "")
+    if not query:
+        return {"error": "missing_query_parameter"}, 400
+
+    last_key = request.args.get("after", {})
+    limit = int(request.args.get("limit", 10))
+    dir = request.args.get("direction", "descending")
+
+    # Hand over to service
+    svc = current_app.config["FORUM_SERVICE"]
+    res = svc.search_questions(query=query, direction=dir, limit=limit, last_key=last_key)
 
     if "error" in res:
         return res, 400

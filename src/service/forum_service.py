@@ -2,11 +2,12 @@
 import uuid
 from flask import g
 from datetime import datetime, timezone
-from ..db import ensure_table
+from ..db import ensure_table, forum_table as table
 from ..repo import question_repo as QuestionRepo
 from ..repo import reply_repo as ReplyRepo
 from ..models.question import QuestionCreate, Question
 from ..models.reply import ReplyCreate, Reply
+from ..models.forum import to_save
 
 class ForumService:
     def __init__(self) -> None:
@@ -85,13 +86,9 @@ class ForumService:
             }
         }
     def list_questions_by_user(self, direction: str, limit: int, last_key: dict[str, str] | None) -> dict[str, object]:
-        match direction:
-            case 'descending' | 'desc':
-                dir = False
-            case 'ascending' | 'asc':
-                dir = True
-            case _:
-                return {"error": "invalid_direction_parameter"}
+        dir = _resolve_direction(direction)
+        if dir is None:
+            return {"error": "invalid_direction_parameter"}
         res = QuestionRepo.list_questions_by_user(direction=dir, limit=limit, last_key=last_key)
         cursor = res.get("LastEvaluatedKey")
         return {
@@ -107,18 +104,38 @@ class ForumService:
         saves_res = QuestionRepo.get_saves(limit=limit, last_key=last_key)
         cursor = saves_res.get("LastEvaluatedKey")
         saves = saves_res.get("Items", [])
-        qids = [s["SK"].split('#')[1] for s in saves]
+        save_objs = [to_save(s) for s in saves]
+        qids = [s.qid for s in save_objs]
         questions = QuestionRepo.get_questions_by_qids(qids)
-        
+        if len(questions) != limit:
+            for i, qid in enumerate(qids):
+                if not any(q["qid"] == qid for q in questions):
+                    table.delete_item(Key=save_objs[i].key())
         return {
-            "items": [q.model_dump() for q in questions if q],
+            "items": questions,
             "pageInfo": {
                 "hasNextPage": False if cursor == None else True,
                 "endCursor": cursor
             }
         }
     
-    # def list_questions_with_tag
+    # Search questions by the content of their titles and bodies
+    def search_questions(self, query: str, direction: str, limit: int, last_key: dict[str, str]) -> dict[str, object]:
+        dir = _resolve_direction(direction)
+        if dir is None:
+            return {"error": "invalid_direction_parameter"}
+        return QuestionRepo.search_questions(query=query, direction=dir, limit=limit, last_key=last_key)
+
+    def list_questions_with_tag(self, tag: str, direction: bool, limit: int, last_key: dict[str, str] | None) -> dict[str, object]:
+        res = QuestionRepo.list_questions_with_tag(tag=tag, direction=direction, limit=limit, last_key=last_key)
+        cursor = res.get("LastEvaluatedKey")
+        return {
+            "items": res["Items"],
+            "pageInfo": {
+                "hasNextPage": False if cursor == None else True,
+                "endCursor": cursor
+            }
+        }
 
     # ---- Replies ----
     def create_reply(self, qid: str, payload: dict) -> dict[str, object] | tuple[dict[str, object], int]:
@@ -176,3 +193,19 @@ def _authorized(qid: str) -> int:
     if not q:
         return -1
     return int(g.user_sub == q.author_id)
+
+def _resolve_direction(direction: str) -> bool | None:
+    match direction:
+        case 'descending' | 'desc':
+            return False
+        case 'ascending' | 'asc':
+            return True
+        case _:
+            return None
+        
+# def _validate_last_key(last_key: dict[str, str] | None) -> dict[str, str] | None:
+#     if not last_key:
+#         return None
+#     if "PK" in last_key and "SK" in last_key:
+#         return last_key
+#     return None

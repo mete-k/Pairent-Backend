@@ -2,7 +2,7 @@
 from flask import g
 from ..db import forum_table as table
 from ..models.question import Question, to_question
-from ..models.forum import Like, Save, Tag
+from ..models.forum import Like, Save, Tag, to_tag
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key
 
@@ -97,7 +97,7 @@ def delete(qid: str) -> bool:
     if not items:
         return True
     
-    # Add tag objects to the list of items do delete
+    # Add tag objects to the list of items to delete
     # This is required because tags do not share the same PK as other items
     q = get_question(qid)
     if q:
@@ -118,7 +118,6 @@ def delete(qid: str) -> bool:
     if "LastEvaluatedKey" in res:
         delete(qid)
 
-    # 
     return True
 
 
@@ -240,18 +239,76 @@ def list_questions_by_user(direction: bool, limit: int, last_key: dict[str, str]
 
     return table.query(**kwargs)
 
-def get_questions_by_qids(qids: list[str]) -> list[Question]:
-    keys = [{"PK": f"QUESTION#{qid}", "SK": "META"} for qid in qids]
+def list_questions_with_tag(tag: str, direction: bool, limit: int, last_key: dict[str, str] | None) -> dict[str, object]:
+    params = {
+        "KeyConditionExpression": Key("PK").eq(f"TAG#{tag}"),
+        "Limit": limit,
+        "ScanIndexForward": direction,
+    }
 
-    res = table.meta.client.batch_get_item(
-        RequestItems={
-            table.name: {
-                "Keys": keys
-            }
-        }
-    )
+    if last_key:
+        params["ExclusiveStartKey"] = last_key
 
-    questions = res["Responses"].get(table.name, [])
-    for i, q in enumerate(questions):
-        questions[i] = to_question(q)
-    return questions
+    res = table.query(**params)
+    qids = []
+    for tag_item in res.get("Items", []):
+        tag_obj = to_tag(tag_item)
+        qids.append(tag_obj.qid) # type: ignore
+
+    ret: dict[str, object] = {
+        "Items": get_questions_by_qids(qids),
+    }
+    ret["LastEvaluatedKey"] = res.get("LastEvaluatedKey")
+
+    return ret
+
+def search_questions(query: str, direction: bool, limit: int, last_key: dict[str, str]) -> dict[str, object]:
+    # This is a very naive implementation of search.
+    # It scans the entire table and filters the results.
+    # This is NOT efficient and should be replaced with a proper search solution.
+    filter_expression = "contains(#t, :q) OR contains(#b, :q)"
+    expression_attribute_names = {
+        "#t": "title",
+        "#b": "body"
+    }
+    expression_attribute_values = {
+        ":q": query
+    }
+    params = {
+        "FilterExpression": filter_expression,
+        "ExpressionAttributeNames": expression_attribute_names,
+        "ExpressionAttributeValues": expression_attribute_values,
+        "Limit": limit,
+    }
+    if last_key:
+        params["ExclusiveStartKey"] = last_key
+
+    res = table.scan(**params)
+    items = res.get("Items", [])
+    items.sort(key=lambda x: x["created_at"], reverse=not direction)
+
+    ret: dict[str, object] = {
+        "Items": items,
+    }
+    le_key = res.get("LastEvaluatedKey")
+    if le_key:
+        ret["LastEvaluatedKey"] = le_key
+
+    return ret
+
+def get_questions_by_qids(qids: list[str]) -> list[dict[str, object]]:
+    keys = [Question.key(qid=qid) for qid in qids]
+
+    request = {table.name: {"Keys": keys}}
+    all_items: list[dict[str, object]] = []
+
+    while request:
+        res = table.meta.client.batch_get_item(RequestItems=request)
+
+        # Add retrieved items
+        all_items.extend(res["Responses"].get(table.name, []))
+
+        # Prepare next retry if any unprocessed keys
+        request = res.get("UnprocessedKeys", {})
+
+    return all_items

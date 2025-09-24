@@ -42,9 +42,7 @@ class Save(BaseModel):
         }
     def key(self) -> dict[str, object]:
         return self.to_item()
-def to_save(item: dict[str, str] | None) -> Save | None:
-    if not item:
-        return None
+def to_save(item: dict[str, str]) -> Save:
     return Save(
         user_id=item["PK"].split("#")[1],
         qid=item["SK"].split("#")[1]
