@@ -1,6 +1,6 @@
 # src/repos/reply_repo.py
 from flask import g
-from ..db import forum_table as table
+from ..db import table
 from ..models.reply import Reply, to_reply
 from ..models.forum import Like
 from botocore.exceptions import ClientError
@@ -85,8 +85,8 @@ def unlike(qid: str, rid: str) -> bool:
             return False
         raise
 
-def get_like(qid: str) -> bool:
-    like = Like(qid=qid, user_id=g.user_sub, liked_id=qid)
+def get_like(qid: str, rid: str) -> bool:
+    like = Like(qid=qid, user_id=g.user_sub, liked_id=rid)
     res = table.get_item(
         Key=like.key()
     )

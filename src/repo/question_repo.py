@@ -1,6 +1,6 @@
 # src/repos/question_repo.py
 from flask import g
-from ..db import forum_table as table
+from ..db import table
 from ..models.question import Question, to_question
 from ..models.forum import Like, Save, Tag, to_tag
 from botocore.exceptions import ClientError
@@ -178,10 +178,13 @@ def get_like(qid: str) -> bool:
 
 # ---- Save ----
 def save_question(qid: str) -> bool:
+    if get_question(qid=qid) is None:
+        unsave_question(qid=qid)
+        return False
     save = Save(qid=qid, user_id=g.user_sub)
     item = table.put_item(
-        Key=save.key()
-    ).get("Item")
+        Item=save.to_item()
+    )
     return item is not None
 def unsave_question(qid: str) -> bool:
     key = Save(qid=qid, user_id=g.user_sub).key()
@@ -193,7 +196,10 @@ def unsave_question(qid: str) -> bool:
     except Exception as e:
         print("Error:", e)
         return False
-def get_saved(qid: str) -> bool:
+def get_save_item(qid: str) -> bool:
+    if get_question(qid=qid) is None:
+        unsave_question(qid=qid)
+        return False
     key = Save(qid=qid, user_id=g.user_sub).key()
     item = table.get_item(
         Key=key

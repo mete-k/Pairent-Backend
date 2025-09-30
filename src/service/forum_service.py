@@ -2,7 +2,7 @@
 import uuid
 from flask import g
 from datetime import datetime, timezone
-from ..db import ensure_table, forum_table as table
+from ..db import ensure_table, table
 from ..repo import question_repo as QuestionRepo
 from ..repo import reply_repo as ReplyRepo
 from ..models.question import QuestionCreate, Question
@@ -191,6 +191,8 @@ class ForumService:
         return ReplyRepo.like(qid, rid)
     def unlike_reply(self, qid: str, rid: str) -> bool:
         return ReplyRepo.unlike(qid, rid)
+    def get_like_reply(self, qid: str, rid: str) -> bool:
+        return ReplyRepo.get_like(qid, rid)
 
 
 def _authorized(qid: str) -> int:

@@ -284,8 +284,104 @@ def unsave_question(qid):
         return {"error": "question_not_found"}, 404
 
 # ---- Reply routes ----
+# Post a reply
 @bp.post("/questions/<qid>/reply")
 @cognito_auth_required
 def post_reply(qid):
     svc = current_app.config["FORUM_SERVICE"]
-    return svc.create_reply(qid)
+    return svc.create_reply(qid, request.get_json() or {})
+
+# Get a specific reply
+@bp.get("/questions/<qid>/reply/<rid>")
+def get_reply(qid, rid):
+    """
+    Get a specific reply by its ID.
+    """
+    svc = current_app.config["FORUM_SERVICE"]
+    reply = svc.get_reply(qid, rid)
+    if not reply:
+        return {"error": "not_found"}, 404
+    return reply, 200
+
+# Edit a reply
+@bp.put("/questions/<qid>/reply/<rid>")
+@cognito_auth_required
+def edit_reply(qid, rid):
+    """
+    Only the author can edit replies
+    Expected headers:
+        {
+            "Authorization": "Bearer {accessToken}"
+        }
+    Expected body:
+        {
+            body: String
+        }
+    """
+    svc = current_app.config["FORUM_SERVICE"]
+    payload = request.get_json() or {}
+    resp = svc.edit_reply(qid, rid, payload)
+    if isinstance(resp, tuple):
+        return resp
+    return resp, 200
+
+# Delete a reply
+@bp.delete("/questions/<qid>/reply/<rid>")
+@cognito_auth_required
+def delete_reply(qid, rid):
+    """
+    Only the author can delete replies.
+    Expected headers:
+        {
+            "Authorization": "Bearer {accessToken}"
+        }
+    """
+    svc = current_app.config["FORUM_SERVICE"]
+    resp = svc.delete_reply(qid, rid)
+    if isinstance(resp, tuple):
+        return resp
+    return "", 204
+
+# ---- Reply Like routes ----
+@bp.post("/questions/<qid>/reply/<rid>/like")
+@cognito_auth_required
+def like_reply(qid, rid):
+    '''
+    Expected headers:
+        {
+            "Authorization": "Bearer {accessToken}"
+        }
+    '''
+    svc = current_app.config["FORUM_SERVICE"]
+    if svc.like_reply(qid, rid):
+        return "", 204
+    else:
+        return {"error": "reply_not_found"}, 404
+
+@bp.delete("/questions/<qid>/reply/<rid>/like")
+@cognito_auth_required
+def unlike_reply(qid, rid):
+    '''
+    Expected headers:
+        {
+            "Authorization": "Bearer {accessToken}"
+        }
+    '''
+    svc = current_app.config["FORUM_SERVICE"]
+    if svc.unlike_reply(qid, rid):
+        return "", 204
+    else:
+        return {"error": "reply_not_found"}, 404
+
+@bp.get("/questions/<qid>/reply/<rid>/like")
+@cognito_auth_required
+def get_like_reply(qid, rid):
+    '''
+    Expected headers:
+        {
+            "Authorization": "Bearer {accessToken}"
+        }
+    '''
+    svc = current_app.config["FORUM_SERVICE"]
+    liked = svc.get_like_reply(qid, rid)
+    return {"liked": liked}, 200
