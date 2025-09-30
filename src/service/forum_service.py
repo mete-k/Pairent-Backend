@@ -25,7 +25,7 @@ class ForumService:
             reply_count=0
         )
         QuestionRepo.create(q)
-        return {"qid": q.qid}
+        return q.model_dump()
 
     def get_question(self, qid: str, content: str) -> dict[str, object] | None:
         if content == "question":
@@ -186,6 +186,11 @@ class ForumService:
             return 204
         else:
             return {"error": "delete_failed"}, 500
+    
+    def like_reply(self, qid: str, rid: str) -> bool:
+        return ReplyRepo.like(qid, rid)
+    def unlike_reply(self, qid: str, rid: str) -> bool:
+        return ReplyRepo.unlike(qid, rid)
 
 
 def _authorized(qid: str) -> int:

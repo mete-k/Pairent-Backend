@@ -46,6 +46,9 @@ def _verify_access_token(token: str, app):
 def cognito_auth_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
+        if request.method == "OPTIONS":
+            return "", 200
+        
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             return jsonify({"message": "Missing Bearer token"}), 401
