@@ -31,6 +31,7 @@ def post_question():
         out = svc.create_question(payload)
         return out, 201
     except ValidationError as e:
+        print(jsonify({"error": "validation", "details": e.errors()}))
         return jsonify({"error": "validation", "details": e.errors()}), 400
 
 # -- Listing questions --
@@ -252,7 +253,7 @@ def get_like_question(qid):
     return {"liked": liked}, 200
 
 # ---- Save routes ----
-@bp.post("questions/<qid>/save")
+@bp.post("/questions/<qid>/save")
 @cognito_auth_required
 def save_question(qid):
     '''
@@ -267,7 +268,7 @@ def save_question(qid):
     else:
         return {"error": "question_not_found"}, 404
 
-@bp.delete("questions/<qid>/save")
+@bp.delete("/questions/<qid>/save")
 @cognito_auth_required
 def unsave_question(qid):
     '''

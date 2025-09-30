@@ -297,6 +297,9 @@ def search_questions(query: str, direction: bool, limit: int, last_key: dict[str
     return ret
 
 def get_questions_by_qids(qids: list[str]) -> list[dict[str, object]]:
+    if not qids:
+        return []
+    
     keys = [Question.key(qid=qid) for qid in qids]
 
     request = {table.name: {"Keys": keys}}

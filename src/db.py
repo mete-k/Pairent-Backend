@@ -24,8 +24,6 @@ profile_table = dynamodb.Table("Profile")
 
 def ensure_table():
     existing_tables = dynamodb_client.list_tables()['TableNames']
-
-    # Forum table
     if "Forum" not in existing_tables:
         dynamodb.create_table(
             TableName="Forum",
@@ -36,8 +34,67 @@ def ensure_table():
             AttributeDefinitions=[
                 {"AttributeName": "PK", "AttributeType": "S"},
                 {"AttributeName": "SK", "AttributeType": "S"},
+                {"AttributeName": "gsi", "AttributeType": "S"},
+                {"AttributeName": "likes", "AttributeType": "N"},
+                {"AttributeName": "date", "AttributeType": "S"},
+                {"AttributeName": "author", "AttributeType": "S"}
             ],
-            BillingMode="PAY_PER_REQUEST"
+            ProvisionedThroughput={
+                'ReadCapacityUnits': 5,
+                'WriteCapacityUnits': 5
+            },
+            GlobalSecondaryIndexes=[
+                # 1. By popularity
+                {
+                    "IndexName": "popular",
+                    "KeySchema": [
+                        {"AttributeName": "gsi", "KeyType": "HASH"},
+                        {"AttributeName": "likes", "KeyType": "RANGE"}
+                    ],
+                    "Projection": {
+                        "ProjectionType": "INCLUDE",
+                        "NonKeyAttributes": ["id", "title", "author", "tags", "date", "likes", "answers"]
+                    },
+                    "ProvisionedThroughput": {
+                        "ReadCapacityUnits": 5,
+                        "WriteCapacityUnits": 5
+                    }
+                },
+
+                # 2. By Recency
+                {
+                    "IndexName": "new",
+                    "KeySchema": [
+                        {"AttributeName": "gsi", "KeyType": "HASH"},
+                        {"AttributeName": "date", "KeyType": "RANGE"}
+                    ],
+                    "Projection": {
+                        "ProjectionType": "INCLUDE",
+                        "NonKeyAttributes": ["id", "title", "author", "tags", "date", "likes", "answers"]
+                    },
+                    "ProvisionedThroughput": {
+                        "ReadCapacityUnits": 5,
+                        "WriteCapacityUnits": 5
+                    }
+                },
+
+                # 3. Questions by Author
+                {
+                    "IndexName": "author",
+                    "KeySchema": [
+                        {"AttributeName": "author", "KeyType": "HASH"},
+                        {"AttributeName": "date", "KeyType": "RANGE"},
+                    ],
+                    "Projection": {
+                        "ProjectionType": "INCLUDE",
+                        "NonKeyAttributes": ["id", "title", "author", "tags", "date", "likes", "answers"]
+                    },
+                    "ProvisionedThroughput": {
+                        "ReadCapacityUnits": 5,
+                        "WriteCapacityUnits": 5
+                    }
+                }
+            ]
         )
 
     # Profile table
@@ -51,8 +108,23 @@ def ensure_table():
             AttributeDefinitions=[
                 {"AttributeName": "PK", "AttributeType": "S"},
                 {"AttributeName": "SK", "AttributeType": "S"},
+                {"AttributeName": "sender_id", "AttributeType": "S"},   # for friend requests
+                {"AttributeName": "date", "AttributeType": "S"}         # for growth/vaccine sorting if needed
             ],
-            BillingMode="PAY_PER_REQUEST"
+            BillingMode="PAY_PER_REQUEST",
+            GlobalSecondaryIndexes=[
+                # 1. Friend requests by sender
+                {
+                    "IndexName": "FriendRequestsBySender",
+                    "KeySchema": [
+                        {"AttributeName": "sender_id", "KeyType": "HASH"},
+                        {"AttributeName": "date", "KeyType": "RANGE"}
+                    ],
+                    "Projection": {
+                        "ProjectionType": "ALL"
+                    }
+                }
+            ]
         )
 
     # Wait until tables are created
