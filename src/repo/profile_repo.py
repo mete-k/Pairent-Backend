@@ -1,5 +1,5 @@
 # src/repo/profile_repo.py
-from ..db import profile_table as table
+from ..db import table
 from boto3.dynamodb.conditions import Key
 from ..models.profile import Profile, Child, Growth, Vaccine, FriendRequest
 

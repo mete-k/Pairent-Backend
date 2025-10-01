@@ -104,7 +104,11 @@ def ensure_table():
                     ],
                     "Projection": {
                         "ProjectionType": "ALL"
-                    }
+                    },
+                    "ProvisionedThroughput": {
+                    "ReadCapacityUnits": 5,
+                    "WriteCapacityUnits": 5
+    }
                 }
             ]
         )

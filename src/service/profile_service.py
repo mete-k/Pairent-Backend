@@ -13,7 +13,7 @@ from ..models.profile import (
     PrivacyLevel
 )
 from ..repo import profile_repo as repo
-from ..db import profile_table as table
+from ..db import table
 from typing import Any
 
 
