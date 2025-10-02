@@ -41,7 +41,6 @@ def get_forum(qid: str, all: bool) -> dict:
             ret["Replies"] += item
     return ret
 
-
 def edit(qid: str, title: str = "", body: str = "", tags: list[str] = []) -> None:
     # Build UpdateExpression and values
     updateExpression = ""
@@ -83,7 +82,6 @@ def edit(qid: str, title: str = "", body: str = "", tags: list[str] = []) -> Non
     except Exception as e:
         print(f"Failed to update question {qid}: {e}")
         # return None
-
 
 def delete(qid: str) -> bool:
     '''
@@ -176,6 +174,7 @@ def get_like(qid: str) -> bool:
     )
     return "Item" in res
 
+
 # ---- Save ----
 def save_question(qid: str) -> bool:
     if get_question(qid=qid) is None:
@@ -216,7 +215,8 @@ def get_saves(limit: int, last_key: dict[str, str] | None) -> dict:
 
     res = table.query(**params)
     return res
-    
+
+
 # ---- List ----
 def list_questions(limit: int, sort: str, direction: bool, last_key: dict[str, str] | None) -> dict[str, object]:
     kwargs = {

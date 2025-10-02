@@ -22,7 +22,7 @@ class ProfileService:
         pass
 
     # ---- Profile ----
-    def create_profile(self, user_id: str, payload: dict) -> dict[str, object]:
+    def create_profile(self, payload: dict) -> dict[str, object]:
         # Default privacy settings
         default_privacy: dict[str, PrivacyLevel] = {
             "name": "public",
@@ -31,7 +31,7 @@ class ProfileService:
         }
 
         profile = Profile(
-            user_id=user_id,
+            user_id=payload["user_id"],
             name=payload["name"],
             dob=payload["dob"],
             friends=[],

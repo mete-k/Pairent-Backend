@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, g, current_app
 from ..auth import cognito_auth_required
-from .. import breakroom_service as service
+from ..service import breakroom_service as service
 
 bp = Blueprint("breakrooms", __name__)
 
@@ -8,7 +8,7 @@ bp = Blueprint("breakrooms", __name__)
 @cognito_auth_required
 def create_breakroom():
     try:
-        data = service.create_breakroom(g.user_sub, g.username)
+        data = service.create_breakroom(g.user_sub)
         return jsonify(data), 201
     except Exception as e:
         current_app.logger.error("Failed to create breakroom: %s", str(e))

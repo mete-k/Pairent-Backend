@@ -1,14 +1,6 @@
 # src/models/forum.py
 from pydantic import BaseModel
 
-'''
-unnecessary, this is not java
-class ForumObject(BaseModel):
-    def to_item(self) -> dict[str, object]: ...
-    def key(self) -> dict[str, object]: ...
-    def from_item(self, item: dict | None) -> self.__class__ | None: ...
-'''
-
 class Like(BaseModel):
     qid: str
     liked_id: str
@@ -21,7 +13,10 @@ class Like(BaseModel):
             "user": self.user_id
         }
     def key(self) -> dict[str, object]:
-        return self.to_item()
+        return {
+            "PK": f"QUESTION#{self.qid}",
+            "SK": f"LIKE#{self.liked_id}"
+        }
 def to_like(item: dict | None) -> Like | None:
     if not item:
         return None

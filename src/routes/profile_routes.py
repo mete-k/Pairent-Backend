@@ -8,7 +8,6 @@ bp = Blueprint("profile", __name__)
 # ---- Profile ----
 # Create profile (called after signup)
 @bp.post("/profile")
-@cognito_auth_required
 def create_profile():
     '''
     Expected headers:
@@ -18,13 +17,14 @@ def create_profile():
         }
     Expected body:
         {
+            user_id: String,
             name: String,
             dob: String
         }
     '''
     svc = current_app.config["PROFILE_SERVICE"]
     payload = request.get_json(force=True)
-    out = svc.create_profile(user_id=g.user_sub, payload=payload)
+    out = svc.create_profile(payload=payload)
     return out, 201
 
 # Get own profile
