@@ -58,10 +58,10 @@ class ProfileService:
         return self._apply_privacy(profile, viewer_id)
 
     # ---- Children ----
-    def add_child(self, user_id: str, payload: ChildCreate) -> dict[str, Any]:
+    def add_child(self, payload: ChildCreate) -> dict[str, Any]:
         child = Child(
-            user_id=user_id,
-            child_id=repo.new_child_id(user_id),
+            user_id=g.user_sub,
+            child_id=repo.new_child_id(g.user_sub),
             name=payload.name,
             dob=payload.dob,
             privacy={"milestones": "public", "growth": "private", "vaccines": "friends"},
@@ -69,15 +69,15 @@ class ProfileService:
         table.put_item(child.to_item())
         return child.model_dump()
 
-    def update_child(self, user_id: str, child_id: str, payload: ChildUpdate) -> dict[str, Any]:
-        return repo.update_child(user_id, child_id, payload.model_dump(exclude_none=True))
+    def update_child(self, child_id: str, payload: ChildUpdate) -> dict[str, Any]:
+        return repo.update_child(g.user_sub, child_id, payload.model_dump(exclude_none=True))
 
-    def delete_child(self, user_id: str, child_id: str) -> None:
-        repo.delete_child(user_id, child_id)
+    def delete_child(self, child_id: str) -> None:
+        repo.delete_child(g.user_sub, child_id)
 
-    def add_growth(self, user_id: str, child_id: str, payload: GrowthCreate) -> dict[str, Any]:
+    def add_growth(self, child_id: str, payload: GrowthCreate) -> dict[str, Any]:
         growth = Growth(
-            user_id=user_id,
+            user_id=g.user_sub,
             child_id=child_id,
             date=payload.date,
             height=payload.height,
@@ -86,9 +86,9 @@ class ProfileService:
         table.put_item(growth.to_item())
         return growth.model_dump()
 
-    def add_vaccine(self, user_id: str, child_id: str, payload: VaccineCreate) -> dict[str, Any]:
+    def add_vaccine(self, child_id: str, payload: VaccineCreate) -> dict[str, Any]:
         vaccine = Vaccine(
-            user_id=user_id,
+            user_id=g.user_sub,
             child_id=child_id,
             name=payload.name,
             date=payload.date,
@@ -111,12 +111,12 @@ class ProfileService:
         repo.add_friend(sender_id, receiver_id)
         return {"accepted": True}
 
-    def list_friend_requests(self, user_id: str) -> list[dict[str, Any]]:
-        return repo.get_friend_requests(user_id)
+    def list_friend_requests(self) -> list[dict[str, Any]]:
+        return repo.get_friend_requests(g.user_sub)
 
-    def remove_friend(self, user_id: str, friend_id: str) -> None:
-        repo.remove_friend(user_id, friend_id)
-        repo.remove_friend(friend_id, user_id)
+    def remove_friend(self, friend_id: str) -> None:
+        repo.remove_friend(g.user_sub, friend_id)
+        repo.remove_friend(friend_id, g.user_sub)
 
     # ---- Privacy ----
     def _apply_privacy(self, profile: dict[str, Any], viewer_id: str) -> dict[str, Any]:
