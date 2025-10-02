@@ -1,6 +1,7 @@
 # src/service/profile_service.py
 from ..models.profile import (
     Profile,
+    ProfileCreate,
     ProfileUpdate,
     Child,
     ChildCreate,
@@ -22,18 +23,17 @@ class ProfileService:
         pass
 
     # ---- Profile ----
-    def create_profile(self, payload: dict) -> dict[str, object]:
+    def create_profile(self, payload: ProfileCreate) -> dict[str, object]:
         # Default privacy settings
         default_privacy: dict[str, PrivacyLevel] = {
             "name": "public",
             "dob": "friends",
             "friends": "friends"
         }
-
         profile = Profile(
-            user_id=payload["user_id"],
-            name=payload["name"],
-            dob=payload["dob"],
+            user_id=payload.user_id,
+            name=payload.name,
+            dob=payload.dob,
             friends=[],
             profile_privacy=default_privacy
         )
@@ -45,6 +45,10 @@ class ProfileService:
         return profile
 
     def update_my_profile(self, user_id: str, payload: ProfileUpdate) -> dict[str, Any]:
+        try:
+            ProfileUpdate.model_validate(payload)
+        except Exception as e:
+            return {"error": "validation", "details": str(e)}
         updated = repo.update_profile(user_id, payload.model_dump(exclude_none=True))
         return updated
 

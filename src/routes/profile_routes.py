@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify, current_app, g
 from pydantic import ValidationError
 from ..auth import cognito_auth_required
+from ..models.profile import ProfileCreate, ProfileUpdate
 
 bp = Blueprint("profile", __name__)
 
@@ -24,6 +25,10 @@ def create_profile():
     '''
     svc = current_app.config["PROFILE_SERVICE"]
     payload = request.get_json(force=True)
+    try:
+        payload = ProfileCreate.model_validate(payload)
+    except ValidationError as e:
+        return jsonify({"error": "validation", "details": e.errors()}), 400
     out = svc.create_profile(payload=payload)
     return out, 201
 

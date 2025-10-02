@@ -4,6 +4,11 @@ from typing import Literal
 PrivacyLevel = Literal["public", "friends", "private"]
 
 # ---- Incoming payloads ----
+class ProfileCreate(BaseModel):
+    user_id: str
+    name: str = Field(min_length=1, max_length=100)
+    dob: str  # ISO format date string
+    
 class ProfileUpdate(BaseModel):
     profile_privacy: dict[str, PrivacyLevel] | None = None
     children: list[dict[str, object]] | None = None
