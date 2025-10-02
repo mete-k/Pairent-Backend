@@ -16,6 +16,7 @@ from ..models.profile import (
 from ..repo import profile_repo as repo
 from ..db import table
 from typing import Any
+from flask import g
 
 
 class ProfileService:
@@ -40,8 +41,8 @@ class ProfileService:
         table.put_item(profile.to_item())
         return profile.model_dump()
 
-    def get_my_profile(self, user_id: str) -> dict[str, Any]:
-        profile = repo.get_profile(user_id)
+    def get_my_profile(self) -> dict[str, Any]:
+        profile = repo.get_profile(g.user_sub)
         return profile
 
     def update_my_profile(self, user_id: str, payload: ProfileUpdate) -> dict[str, Any]:
