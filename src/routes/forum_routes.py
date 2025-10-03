@@ -247,6 +247,7 @@ def unlike_question(qid):
         return {"error": "question_not_found"}, 404
 
 @bp.get("/questions/<qid>/like")
+@cognito_auth_required
 def get_like_question(qid):
     svc = current_app.config["FORUM_SERVICE"]
     liked = svc.get_like_question(qid)
