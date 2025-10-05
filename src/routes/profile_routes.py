@@ -2,7 +2,8 @@
 from flask import Blueprint, request, jsonify, current_app, g
 from pydantic import ValidationError
 from ..auth import cognito_auth_required
-from ..models.profile import ProfileCreate, ProfileUpdate
+from ..models.profile import ProfileCreate, ProfileUpdate, ChildCreate, ChildUpdate
+from ..service import profile_service as svc
 
 bp = Blueprint("profile", __name__)
 
@@ -50,26 +51,10 @@ def get_my_profile():
 @bp.put("/profile/me")
 @cognito_auth_required
 def update_my_profile():
-    '''
-    Expected headers:
-        {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer {accessToken}"
-        }
-    Expected body:
-        {
-            children: [ ... ],
-            profile_privacy: { ... }
-        }
-    '''
-    svc = current_app.config["PROFILE_SERVICE"]
-    try:
-        payload = request.get_json(force=True)
-        out = svc.update_my_profile(payload)
-        return out, 200
-    except ValidationError as e:
-        return jsonify({"error": "validation", "details": e.errors()}), 400
-
+    svc = current_app.config["PROFILE_SERVICE"] 
+    payload = request.get_json(force=True)
+    out = svc.update_profile(payload)
+    return jsonify(out), 200
 
 # Get another user's profile (privacy filtered)
 @bp.get("/profile/<user_id>")
@@ -82,8 +67,7 @@ def get_user_profile(user_id):
         }
     '''
     svc = current_app.config["PROFILE_SERVICE"]
-    return svc.get_user_profile(user_id), 200
-
+    return svc.get_user_profile(g.user_sub, user_id), 200
 
 # ---- Children ----
 
@@ -91,21 +75,13 @@ def get_user_profile(user_id):
 @bp.post("/profile/me/children")
 @cognito_auth_required
 def add_child():
-    '''
-    Expected headers:
-        {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer {accessToken}"
-        }
-    Expected body:
-        {
-            name: String,
-            dob: String
-        }
-    '''
     svc = current_app.config["PROFILE_SERVICE"]
-    payload = request.get_json(force=True)
-    return svc.add_child(payload), 201
+    try:
+        payload = request.get_json(force=True)
+        payload = ChildCreate.model_validate(payload)  # ✅ Convert dict → Pydantic model
+        return svc.add_child(payload), 201
+    except ValidationError as e:
+        return jsonify({"error": "validation", "details": e.errors()}), 400
 
 
 # Update child
@@ -123,8 +99,7 @@ def update_child(child_id):
     '''
     svc = current_app.config["PROFILE_SERVICE"]
     payload = request.get_json(force=True)
-    return svc.update_child(child_id, payload), 200
-
+    return svc.update_child(child_id, ChildUpdate(**payload)), 200
 
 # Delete child
 @bp.delete("/profile/me/children/<child_id>")
@@ -140,6 +115,17 @@ def delete_child(child_id):
     svc.delete_child(child_id)
     return "", 204
 
+# List children
+@bp.get("/profile/me/children")
+@cognito_auth_required
+def list_children():
+    """
+    Get all children for the authenticated user.
+    Expected headers:
+        Authorization: Bearer {accessToken}
+    """
+    svc = current_app.config["PROFILE_SERVICE"]
+    return jsonify(svc.list_children()), 200
 
 # Add growth record
 @bp.post("/profile/me/children/<child_id>/growth")

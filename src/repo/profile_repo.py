@@ -16,21 +16,28 @@ def get_profile(user_id: str) -> dict[str, object]:
     res = table.get_item(Key=Profile.key(user_id))
     return res.get("Item", {})
 
-def update_profile(user_id: str, payload: dict[str, object]) -> dict[str, object]:
-    """Update profile fields like privacy or children list (friends not handled here)."""
-    key = Profile.key(user_id)
-    expr = []
+def update_profile(user_id: str, updates: dict):
+    key = {"PK": f"USER#{user_id}", "SK": "PROFILE"}
+
+    expr_parts = []
+    names = {}
     values = {}
-    for k, v in payload.items():
-        expr.append(f"{k} = :{k}")
+
+    for k, v in updates.items():
+        names[f"#{k}"] = k
         values[f":{k}"] = v
-    update_expr = "SET " + ", ".join(expr)
+        expr_parts.append(f"#{k} = :{k}")
+
+    update_expr = "SET " + ", ".join(expr_parts)
+
     res = table.update_item(
         Key=key,
         UpdateExpression=update_expr,
+        ExpressionAttributeNames=names,
         ExpressionAttributeValues=values,
         ReturnValues="ALL_NEW"
     )
+
     return res["Attributes"]
 
 # ---- Children ----
@@ -43,22 +50,41 @@ def add_child(user_id: str, child: dict[str, object]) -> dict[str, object]:
     return child
 
 def update_child(user_id: str, child_id: str, updates: dict[str, object]) -> dict[str, object]:
-    if not updates:
-        return {}
     key = Child.key(user_id, child_id)
     expr = []
     values = {}
+    names = {}
+
     for k, v in updates.items():
-        expr.append(f"{k} = :{k}")
+        # Handle reserved keywords like 'name'
+        attr_name = f"#{k}" if k in ["name"] else k
+        expr.append(f"{attr_name} = :{k}")
         values[f":{k}"] = v
+        if attr_name.startswith("#"):
+            names[attr_name] = k
+
     update_expr = "SET " + ", ".join(expr)
-    res = table.update_item(
-        Key=key,
-        UpdateExpression=update_expr,
-        ExpressionAttributeValues=values,
-        ReturnValues="ALL_NEW"
-    )
+
+    params = {
+        "Key": key,
+        "UpdateExpression": update_expr,
+        "ExpressionAttributeValues": values,
+        "ReturnValues": "ALL_NEW",
+    }
+
+    if names:
+        params["ExpressionAttributeNames"] = names
+
+    res = table.update_item(**params)
     return res["Attributes"]
+
+
+def get_children(user_id: str) -> list[dict[str, object]]:
+    """Return all child records for a given user."""
+    res = table.query(
+        KeyConditionExpression=Key("PK").eq(f"USER#{user_id}") & Key("SK").begins_with("CHILD#")
+    )
+    return res.get("Items", [])
 
 def delete_child(user_id: str, child_id: str) -> None:
     table.delete_item(Key=Child.key(user_id, child_id))

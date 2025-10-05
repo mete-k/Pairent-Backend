@@ -1,4 +1,3 @@
-# src/service/profile_service.py
 from ..models.profile import (
     Profile,
     ProfileCreate,
@@ -26,7 +25,6 @@ class ProfileService:
 
     # ---- Profile ----
     def create_profile(self, payload: ProfileCreate) -> dict[str, object]:
-        # Default privacy settings
         default_privacy: dict[str, PrivacyLevel] = {
             "name": "public",
             "dob": "friends",
@@ -40,20 +38,19 @@ class ProfileService:
             friends=[],
             profile_privacy=default_privacy
         )
-        table.put_item(profile.to_item())
+        table.put_item(Item = profile.to_item())
         return profile.model_dump()
 
     def get_my_profile(self) -> dict[str, Any]:
+        print("DEBUG /profile/me user_sub:", g.user_sub)
         profile = repo.get_profile(g.user_sub)
+        print("DEBUG retrieved:", profile)
         return profile
 
-    def update_my_profile(self, user_id: str, payload: ProfileUpdate) -> dict[str, Any]:
-        try:
-            ProfileUpdate.model_validate(payload)
-        except Exception as e:
-            return {"error": "validation", "details": str(e)}
-        updated = repo.update_profile(user_id, payload.model_dump(exclude_none=True))
-        return updated
+    def update_profile(self, payload: dict):
+        """Update current user's profile fields like name, bio, or privacy."""
+        from flask import g
+        return repo.update_profile(g.user_sub, payload)
 
     def get_user_profile(self, viewer_id: str, user_id: str) -> dict[str, Any]:
         profile = repo.get_profile(user_id)
@@ -67,9 +64,9 @@ class ProfileService:
             name=payload.name,
             dob=payload.dob,
             privacy={"milestones": "public", "growth": "private", "vaccines": "friends"},
-            milestones=[{"id": i, "reached": False} for i in range(len(milestones_list))]
+            milestones=[{"id": i, "reached": False} for i in range(len(milestones_list))],
         )
-        table.put_item(child.to_item())
+        table.put_item(Item=child.to_item())
         return child.model_dump()
 
     def update_child(self, child_id: str, payload: ChildUpdate) -> dict[str, Any]:
@@ -77,6 +74,11 @@ class ProfileService:
 
     def delete_child(self, child_id: str) -> None:
         repo.delete_child(g.user_sub, child_id)
+
+    def list_children(self) -> list[dict[str, Any]]:
+        """Return all children for the current user."""
+        children = repo.get_children(g.user_sub)
+        return children
 
     def add_growth(self, child_id: str, payload: GrowthCreate) -> dict[str, Any]:
         growth = Growth(
@@ -86,7 +88,7 @@ class ProfileService:
             height=payload.height,
             weight=payload.weight,
         )
-        table.put_item(growth.to_item())
+        table.put_item(Item = growth.to_item())
         return growth.model_dump()
 
     def add_vaccine(self, child_id: str, payload: VaccineCreate) -> dict[str, Any]:
@@ -97,19 +99,17 @@ class ProfileService:
             date=payload.date,
             status=payload.status,
         )
-        table.put_item(vaccine.to_item())
+        table.put_item(Item = vaccine.to_item())
         return vaccine.model_dump()
 
     # ---- Friends ----
     def send_friend_request(self, sender_id: str, receiver_id: str) -> dict[str, Any]:
         req = FriendRequest(from_id=sender_id, to_id=receiver_id, status="pending")
-        table.put_item(req.to_item())
+        table.put_item(Item = req.to_item())
         return req.model_dump()
 
     def accept_friend_request(self, receiver_id: str, sender_id: str) -> dict[str, Any]:
-        # delete request
         table.delete_item(FriendRequest.key(receiver_id, sender_id))
-        # add to each other's friend list
         repo.add_friend(receiver_id, sender_id)
         repo.add_friend(sender_id, receiver_id)
         return {"accepted": True}
@@ -123,12 +123,10 @@ class ProfileService:
 
     # ---- Privacy ----
     def _apply_privacy(self, profile: dict[str, Any], viewer_id: str) -> dict[str, Any]:
-        is_owner = (viewer_id == profile["user_id"])
+        is_owner = viewer_id == profile["user_id"]
         is_friend = viewer_id in profile.get("friends", [])
-
         filtered: dict[str, Any] = {}
 
-        # profile level fields
         for field in ["name", "dob", "friends"]:
             privacy = profile["privacy"].get(field, "public")
             if privacy == "public":
@@ -138,7 +136,6 @@ class ProfileService:
             elif privacy == "private" and is_owner:
                 filtered[field] = profile[field]
 
-        # children (alan bazlı privacy)
         if "children" in profile:
             filtered_children = []
             for child in profile["children"]:
