@@ -8,23 +8,28 @@ class Like(BaseModel):
 
     def to_item(self) -> dict[str, object]:
         return {
-            "PK": f"QUESTION#{self.qid}",
+            "PK": f"USER#{self.user_id}",
             "SK": f"LIKE#{self.liked_id}",
-            "user": self.user_id
+            "qid": self.qid,
+            "user_id": self.user_id,
+            "liked_id": self.liked_id
         }
+
     def key(self) -> dict[str, object]:
         return {
-            "PK": f"QUESTION#{self.qid}",
+            "PK": f"USER#{self.user_id}",
             "SK": f"LIKE#{self.liked_id}"
         }
+
 def to_like(item: dict | None) -> Like | None:
     if not item:
         return None
     return Like(
-        qid=item["PK"].split("#")[1],
+        user_id=item["PK"].split("#")[1],
         liked_id=item["SK"].split("#")[1],
-        user_id=item["user"]
+        qid=item.get("qid", "")
     )
+
 
 class Save(BaseModel):
     qid: str

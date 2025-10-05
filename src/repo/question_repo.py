@@ -5,6 +5,8 @@ from ..models.question import Question, to_question
 from ..models.forum import Like, Save, Tag, to_tag
 from botocore.exceptions import ClientError
 from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr
+
 
 """All Question persistence (DynamoDB)."""
 
@@ -38,7 +40,7 @@ def get_forum(qid: str, all: bool) -> dict:
         if sk == "!":
             ret["Question"] = item
         elif sk.startswith("REPLY#"):
-            ret["Replies"] += item
+            ret["Replies"].append(item)
     return ret
 
 def edit(qid: str, title: str = "", body: str = "", tags: list[str] = []) -> None:
@@ -268,39 +270,43 @@ def list_questions_with_tag(tag: str, direction: bool, limit: int, last_key: dic
 
     return ret
 
-def search_questions(query: str, direction: bool, limit: int, last_key: dict[str, str]) -> dict[str, object]:
-    # This is a very naive implementation of search.
-    # It scans the entire table and filters the results.
-    # This is NOT efficient and should be replaced with a proper search solution.
-    filter_expression = "contains(#t, :q) OR contains(#b, :q)"
-    expression_attribute_names = {
-        "#t": "title",
-        "#b": "body"
-    }
-    expression_attribute_values = {
-        ":q": query
-    }
-    params = {
-        "FilterExpression": filter_expression,
-        "ExpressionAttributeNames": expression_attribute_names,
-        "ExpressionAttributeValues": expression_attribute_values,
-        "Limit": limit,
-    }
-    if last_key:
-        params["ExclusiveStartKey"] = last_key
+def search_questions(query: str, direction: str, limit: int, last_key: dict[str, str]) -> dict[str, object]:
+    """
+    Search questions by text in title or body.
+    Filters to only QUESTION items (SK = '!') to avoid Tags/Likes/Saves.
+    """
+    try:
+        # DynamoDB ConditionExpression (not raw string)
+        filter_expr = (
+            Attr("PK").begins_with("QUESTION#") &
+            Attr("SK").eq("!") &
+            (Attr("title").contains(query) | Attr("body").contains(query))
+        )
 
-    res = table.scan(**params)
-    items = res.get("Items", [])
-    items.sort(key=lambda x: x["created_at"], reverse=not direction)
+        scan_kwargs = {
+            "FilterExpression": filter_expr,
+            "Limit": limit,
+        }
+        if last_key:
+            scan_kwargs["ExclusiveStartKey"] = last_key
 
-    ret: dict[str, object] = {
-        "Items": items,
-    }
-    le_key = res.get("LastEvaluatedKey")
-    if le_key:
-        ret["LastEvaluatedKey"] = le_key
+        res = table.scan(**scan_kwargs)
+        items = res.get("Items", [])
+        last_evaluated_key = res.get("LastEvaluatedKey")
 
-    return ret
+        # Safe sort like list endpoints
+        reverse_sort = direction != "ascending"
+        items.sort(key=lambda x: x.get("created_at", x.get("date", "0")), reverse=reverse_sort)
+
+        ret: dict[str, object] = {"Items": items}
+        if last_evaluated_key:
+            ret["LastEvaluatedKey"] = last_evaluated_key
+
+        return ret
+
+    except Exception as e:
+        print("Error in search_questions:", e)
+        return {"error": str(e)}
 
 def get_questions_by_qids(qids: list[str]) -> list[dict[str, object]]:
     if not qids:
