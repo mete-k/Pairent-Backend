@@ -13,17 +13,26 @@ class ForumService:
     def __init__(self) -> None:
         ensure_table()
     def create_question(self, payload: QuestionCreate) -> dict[str, object]:
-        from ..models.profile import Profile
-        res = table.get_item(Key=Profile.key(g.user_sub))
-        profile = res.get("Item", {})
-        print("Profile:", profile)
-        print("Author ID:", g.user_sub)
+        from boto3 import client
+
+        cl = client("cognito-idp", region_name="eu-north-1")
+
+        resp = cl.admin_get_user(
+            UserPoolId="eu-north-1_LRB1Cr2sA",
+            Username=g.user_sub
+        )
+
+        # Extract the "name" attribute (or others)
+        name = next(
+            (attr["Value"] for attr in resp["UserAttributes"] if attr["Name"] == "name"),
+            None
+        )
         q = Question(
             qid=uuid.uuid4().hex,
             title=payload.title.strip(),
             body=payload.body.strip(),
             author_id=g.user_sub,
-            name=profile.get("name", "Anonymous"),
+            name=name if name else "Anonymous",
             tags=payload.tags,
             age=payload.age,
             created_at=datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S"),

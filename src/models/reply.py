@@ -40,7 +40,16 @@ class Reply(BaseModel):
         extra = "ignore"
 def to_reply(item: dict) -> Reply | None:
     try:
-        return Reply(**item)
+        return Reply(
+            qid=item["PK"].split("#", 1)[1],
+            rid=item["SK"].split("#", 1)[1],
+            parent_id=item.get("parent", ""),
+            user_id=item.get("user", ""),
+            body=item.get("body", ""),
+            created_at=item.get("date", ""),
+            likes=item.get("likes", 0),
+            reply_count=item.get("replies", 0)
+        )
     except Exception as e:
         print("Error in validating reply item:", e)
         return None
