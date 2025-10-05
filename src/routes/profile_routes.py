@@ -118,6 +118,8 @@ def update_child(child_id):
             "Content-Type": "application/json",
             "Authorization": "Bearer {accessToken}"
         }
+    Expected body:
+        {
     '''
     svc = current_app.config["PROFILE_SERVICE"]
     payload = request.get_json(force=True)

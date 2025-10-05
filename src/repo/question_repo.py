@@ -86,14 +86,12 @@ def edit(qid: str, title: str = "", body: str = "", tags: list[str] = []) -> Non
 def delete(qid: str) -> bool:
     '''
     Delete (almost) everything associated with a question.
-    This includes the question itself, its replies, likes, saves, and tags.
+    This includes the question itself, its replies, likes, and tags.
     It does not delete save objects which are associated with the user.
     '''
     # Get all items associated with the question
     res = get_forum(qid, all=True)
     items = res.get("Items", [])
-    if not items:
-        return True
     
     # Add tag objects to the list of items to delete
     # This is required because tags do not share the same PK as other items
@@ -102,6 +100,8 @@ def delete(qid: str) -> bool:
         for tag in q.tags:
             t = Tag(tag=tag, qid=q.qid, created_at=q.created_at)
             items.append(t.to_item())
+    if not items:
+        return True
     
     # Delete the items in batch
     with table.batch_writer() as batch:
@@ -269,9 +269,6 @@ def list_questions_with_tag(tag: str, direction: bool, limit: int, last_key: dic
     return ret
 
 def search_questions(query: str, direction: bool, limit: int, last_key: dict[str, str]) -> dict[str, object]:
-    # This is a very naive implementation of search.
-    # It scans the entire table and filters the results.
-    # This is NOT efficient and should be replaced with a proper search solution.
     filter_expression = "contains(#t, :q) OR contains(#b, :q)"
     expression_attribute_names = {
         "#t": "title",
@@ -291,7 +288,6 @@ def search_questions(query: str, direction: bool, limit: int, last_key: dict[str
 
     res = table.scan(**params)
     items = res.get("Items", [])
-    items.sort(key=lambda x: x["created_at"], reverse=not direction)
 
     ret: dict[str, object] = {
         "Items": items,

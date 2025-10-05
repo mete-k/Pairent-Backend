@@ -35,7 +35,6 @@ def update_profile(user_id: str, payload: dict[str, object]) -> dict[str, object
 
 # ---- Children ----
 def new_child_id(user_id: str) -> str:
-    # naive ID generation, in practice UUID preferred
     import uuid
     return str(uuid.uuid4())
 
@@ -44,6 +43,8 @@ def add_child(user_id: str, child: dict[str, object]) -> dict[str, object]:
     return child
 
 def update_child(user_id: str, child_id: str, updates: dict[str, object]) -> dict[str, object]:
+    if not updates:
+        return {}
     key = Child.key(user_id, child_id)
     expr = []
     values = {}
