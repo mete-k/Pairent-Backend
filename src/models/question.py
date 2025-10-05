@@ -14,6 +14,7 @@ class Question(BaseModel):
     title: str
     body: str
     author_id: str
+    name: str
     tags: list[str]
     age: int
     created_at: str
@@ -28,7 +29,8 @@ class Question(BaseModel):
             "qid": self.qid,
             "title": self.title,
             "body": self.body,
-            "author": self.author_id,
+            "sub": self.author_id,
+            "name": self.name,
             "tags": self.tags,
             "age": self.age,
             "date": self.created_at,
@@ -50,7 +52,8 @@ def to_question(item: dict | None) -> Question | None:
         qid=item["qid"],
         title=item["title"],
         body=item.get("body", ""),
-        author_id=item["author"],
+        author_id=item["sub"],
+        name=item.get("name", ""),
         tags=item.get("tags", []),
         age=item.get("age", 0),
         created_at=item["date"],

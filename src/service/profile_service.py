@@ -11,7 +11,8 @@ from ..models.profile import (
     Vaccine,
     VaccineCreate,
     FriendRequest,
-    PrivacyLevel
+    PrivacyLevel,
+    milestones_list
 )
 from ..repo import profile_repo as repo
 from ..db import table
@@ -29,7 +30,8 @@ class ProfileService:
         default_privacy: dict[str, PrivacyLevel] = {
             "name": "public",
             "dob": "friends",
-            "friends": "friends"
+            "friends": "friends",
+            "children": "friends"
         }
         profile = Profile(
             user_id=payload.user_id,
@@ -65,6 +67,7 @@ class ProfileService:
             name=payload.name,
             dob=payload.dob,
             privacy={"milestones": "public", "growth": "private", "vaccines": "friends"},
+            milestones=[{"id": i, "reached": False} for i in range(len(milestones_list))]
         )
         table.put_item(child.to_item())
         return child.model_dump()

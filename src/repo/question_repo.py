@@ -88,14 +88,12 @@ def edit(qid: str, title: str = "", body: str = "", tags: list[str] = []) -> Non
 def delete(qid: str) -> bool:
     '''
     Delete (almost) everything associated with a question.
-    This includes the question itself, its replies, likes, saves, and tags.
+    This includes the question itself, its replies, likes, and tags.
     It does not delete save objects which are associated with the user.
     '''
     # Get all items associated with the question
     res = get_forum(qid, all=True)
     items = res.get("Items", [])
-    if not items:
-        return True
     
     # Add tag objects to the list of items to delete
     # This is required because tags do not share the same PK as other items
@@ -104,6 +102,8 @@ def delete(qid: str) -> bool:
         for tag in q.tags:
             t = Tag(tag=tag, qid=q.qid, created_at=q.created_at)
             items.append(t.to_item())
+    if not items:
+        return True
     
     # Delete the items in batch
     with table.batch_writer() as batch:
@@ -270,33 +270,26 @@ def list_questions_with_tag(tag: str, direction: bool, limit: int, last_key: dic
 
     return ret
 
-def search_questions(query: str, direction: str, limit: int, last_key: dict[str, str]) -> dict[str, object]:
-    """
-    Search questions by text in title or body.
-    Filters to only QUESTION items (SK = '!') to avoid Tags/Likes/Saves.
-    """
-    try:
-        # DynamoDB ConditionExpression (not raw string)
-        filter_expr = (
-            Attr("PK").begins_with("QUESTION#") &
-            Attr("SK").eq("!") &
-            (Attr("title").contains(query) | Attr("body").contains(query))
-        )
+def search_questions(query: str, direction: bool, limit: int, last_key: dict[str, str]) -> dict[str, object]:
+    filter_expression = "contains(#t, :q) OR contains(#b, :q)"
+    expression_attribute_names = {
+        "#t": "title",
+        "#b": "body"
+    }
+    expression_attribute_values = {
+        ":q": query
+    }
+    params = {
+        "FilterExpression": filter_expression,
+        "ExpressionAttributeNames": expression_attribute_names,
+        "ExpressionAttributeValues": expression_attribute_values,
+        "Limit": limit,
+    }
+    if last_key:
+        params["ExclusiveStartKey"] = last_key
 
-        scan_kwargs = {
-            "FilterExpression": filter_expr,
-            "Limit": limit,
-        }
-        if last_key:
-            scan_kwargs["ExclusiveStartKey"] = last_key
-
-        res = table.scan(**scan_kwargs)
-        items = res.get("Items", [])
-        last_evaluated_key = res.get("LastEvaluatedKey")
-
-        # Safe sort like list endpoints
-        reverse_sort = direction != "ascending"
-        items.sort(key=lambda x: x.get("created_at", x.get("date", "0")), reverse=reverse_sort)
+    res = table.scan(**params)
+    items = res.get("Items", [])
 
         ret: dict[str, object] = {"Items": items}
         if last_evaluated_key:
