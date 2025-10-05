@@ -270,26 +270,28 @@ def list_questions_with_tag(tag: str, direction: bool, limit: int, last_key: dic
 
     return ret
 
-def search_questions(query: str, direction: bool, limit: int, last_key: dict[str, str]) -> dict[str, object]:
-    filter_expression = "contains(#t, :q) OR contains(#b, :q)"
-    expression_attribute_names = {
-        "#t": "title",
-        "#b": "body"
-    }
-    expression_attribute_values = {
-        ":q": query
-    }
-    params = {
-        "FilterExpression": filter_expression,
-        "ExpressionAttributeNames": expression_attribute_names,
-        "ExpressionAttributeValues": expression_attribute_values,
-        "Limit": limit,
-    }
-    if last_key:
-        params["ExclusiveStartKey"] = last_key
+def search_questions(query: str, direction: bool, limit: int, last_key: dict[str, str] | None) -> dict[str, object]:
+    try:
+        filter_expression = "contains(#t, :q) OR contains(#b, :q)"
+        expression_attribute_names = {
+            "#t": "title",
+            "#b": "body"
+        }
+        expression_attribute_values = {
+            ":q": query
+        }
+        params = {
+            "FilterExpression": filter_expression,
+            "ExpressionAttributeNames": expression_attribute_names,
+            "ExpressionAttributeValues": expression_attribute_values,
+            "Limit": limit,
+        }
+        if last_key:
+            params["ExclusiveStartKey"] = last_key
 
-    res = table.scan(**params)
-    items = res.get("Items", [])
+        res = table.scan(**params)
+        items = res.get("Items", [])
+        last_evaluated_key = res.get("LastEvaluatedKey")
 
         ret: dict[str, object] = {"Items": items}
         if last_evaluated_key:
@@ -300,6 +302,7 @@ def search_questions(query: str, direction: bool, limit: int, last_key: dict[str
     except Exception as e:
         print("Error in search_questions:", e)
         return {"error": str(e)}
+
 
 def get_questions_by_qids(qids: list[str]) -> list[dict[str, object]]:
     if not qids:
