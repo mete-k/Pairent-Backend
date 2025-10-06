@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify, current_app, g
 from pydantic import ValidationError
 from ..auth import cognito_auth_required
-from ..models.profile import ProfileCreate, ProfileUpdate, ChildCreate, ChildUpdate
+from ..models.profile import ProfileCreate, ProfileUpdate, ChildCreate, ChildUpdate, GrowthCreate, VaccineCreate
 from ..service import profile_service as svc
 
 bp = Blueprint("profile", __name__)
@@ -78,28 +78,30 @@ def add_child():
     svc = current_app.config["PROFILE_SERVICE"]
     try:
         payload = request.get_json(force=True)
-        payload = ChildCreate.model_validate(payload)  # ✅ Convert dict → Pydantic model
+        payload = ChildCreate.model_validate(payload)
         return svc.add_child(payload), 201
     except ValidationError as e:
         return jsonify({"error": "validation", "details": e.errors()}), 400
-
 
 # Update child
 @bp.put("/profile/me/children/<child_id>")
 @cognito_auth_required
 def update_child(child_id):
-    '''
-    Expected headers:
-        {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer {accessToken}"
-        }
-    Expected body:
-        {
-    '''
-    svc = current_app.config["PROFILE_SERVICE"]
-    payload = request.get_json(force=True)
-    return svc.update_child(child_id, ChildUpdate(**payload)), 200
+    from flask import g, current_app, request
+    from ..models.profile import ChildUpdate
+    from ..service.profile_service import ProfileService
+
+    payload = request.get_json()
+    current_app.logger.info(f"[ROUTE] PUT /profile/me/children/{child_id} payload: {payload}")
+
+    update_model = ChildUpdate.model_validate(payload)
+    data = update_model.model_dump(exclude_none=True)
+    current_app.logger.info(f"[ROUTE] Parsed ChildUpdate: {data}")
+
+    svc = ProfileService()
+    result = svc.update_child(child_id, update_model)
+
+    return jsonify(result), 200
 
 # Delete child
 @bp.delete("/profile/me/children/<child_id>")
@@ -131,43 +133,58 @@ def list_children():
 @bp.post("/profile/me/children/<child_id>/growth")
 @cognito_auth_required
 def add_growth(child_id):
-    '''
-    Expected headers:
-        {
-            "Authorization": "Bearer {accessToken}"
-        }
-    Expected body:
-        {
-            date: String,
-            height: Number,
-            weight: Number
-        }
-    '''
     svc = current_app.config["PROFILE_SERVICE"]
-    payload = request.get_json(force=True)
-    return svc.add_growth(child_id, payload), 201
+    try:
+        payload = request.get_json(force=True)
+        growth_data = GrowthCreate.model_validate(payload)
+    except ValidationError as e:
+        return jsonify({"error": "validation", "details": e.errors()}), 400
 
+    return svc.add_growth(child_id, growth_data), 201
 
 # Add vaccine record
 @bp.post("/profile/me/children/<child_id>/vaccine")
 @cognito_auth_required
 def add_vaccine(child_id):
-    '''
-    Expected headers:
-        {
-            "Authorization": "Bearer {accessToken}"
-        }
-    Expected body:
-        {
-            name: String,
-            date: String,
-            status: "done" | "pending" | "skipped"
-        }
-    '''
     svc = current_app.config["PROFILE_SERVICE"]
-    payload = request.get_json(force=True)
-    return svc.add_vaccine(child_id, payload), 201
+    try:
+        payload = request.get_json(force=True)
+        vaccine_data = VaccineCreate.model_validate(payload)
+    except ValidationError as e:
+        return jsonify({"error": "validation", "details": e.errors()}), 400
 
+    return svc.add_vaccine(child_id, vaccine_data), 201
+
+# ---- List growth records ----
+@bp.get("/profile/me/children/<child_id>/growth")
+@cognito_auth_required
+def list_growth(child_id):
+    """
+    List all growth records for the given child.
+    """
+    svc = current_app.config["PROFILE_SERVICE"]
+    return jsonify(svc.list_growth(child_id)), 200
+
+# ---- List vaccine records ----
+@bp.get("/profile/me/children/<child_id>/vaccine")
+@cognito_auth_required
+def list_vaccine(child_id):
+    """
+    List all vaccine records for the given child.
+    """
+    svc = current_app.config["PROFILE_SERVICE"]
+    return jsonify(svc.list_vaccine(child_id)), 200
+
+
+# ---- Milestones ----
+@bp.get("/milestones/<child_id>")
+@cognito_auth_required
+def list_milestones(child_id):
+    """
+    Get milestone progress for the given child.
+    """
+    svc = current_app.config["PROFILE_SERVICE"]
+    return jsonify(svc.list_milestones(child_id)), 200
 
 # ---- Friends ----
 

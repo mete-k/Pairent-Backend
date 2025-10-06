@@ -1,25 +1,27 @@
-# src/models/question.py
 from pydantic import BaseModel, Field
+from typing import Optional, List
 
-# Incoming payload
+
+# ---- Incoming payload ----
 class QuestionCreate(BaseModel):
     title: str = Field(min_length=3, max_length=200)
     body: str
-    tags: list[str]
+    tags: List[str] = []
     age: int
 
-# Primary model
+
+# ---- Primary model ----
 class Question(BaseModel):
     qid: str
     title: str
     body: str
     author_id: str
     name: str
-    tags: list[str]
-    age: int
-    created_at: str
-    likes: int
-    reply_count: int
+    tags: List[str] = []              
+    age: Optional[int] = None
+    created_at: Optional[str] = None
+    likes: int = 0
+    reply_count: int = 0
 
     def to_item(self) -> dict:
         return {
@@ -29,13 +31,13 @@ class Question(BaseModel):
             "qid": self.qid,
             "title": self.title,
             "body": self.body,
-            "author": self.author_id,
-            "name": self.name,
-            "tags": self.tags,
-            "age": self.age,
+            "author": self.author_id or "unknown",
+            "name": self.name or "Anonymous",
+            "tags": self.tags or [],
+            "age": self.age or 0,
             "date": self.created_at,
             "likes": self.likes,
-            "replies": self.reply_count
+            "replies": self.reply_count,
         }
 
     @staticmethod
@@ -45,18 +47,21 @@ class Question(BaseModel):
             "SK": "!"
         }
 
-def to_question(item: dict | None) -> Question | None:
+
+# ---- Conversion helper ----
+def to_question(item: dict | None) -> Optional[Question]:
     if not item:
         return None
+
     return Question(
-        qid=item["qid"],
-        title=item["title"],
+        qid=item.get("qid") or item.get("PK", "").replace("QUESTION#", ""),
+        title=item.get("title", ""),
         body=item.get("body", ""),
-        author_id=item["author"],
-        name=item.get("name", ""),
+        author_id=item.get("author"),
+        name=item.get("name", "Anonymous"),
         tags=item.get("tags", []),
-        age=item.get("age", 0),
-        created_at=item["date"],
+        age=item.get("age"),
+        created_at=item.get("date"),
         likes=item.get("likes", 0),
-        reply_count=item.get("replies", 0)
+        reply_count=item.get("replies", 0),
     )

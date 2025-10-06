@@ -1,33 +1,36 @@
 from pydantic import BaseModel, Field
 from typing import Literal
+from decimal import Decimal
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
 
 PrivacyLevel = Literal["public", "friends", "private"]
 
 milestones_list = [
-    "First bottle feed",
-    "First time drinking from a cup",
-    "First time sitting without support",
-    "First time crawling",
-    "First time standing while holding onto something",
-    "First time standing without support",
-    "First tooth",
-    "First solid food",
-    "First steps with support",
-    "First time walking",
-    "First words",
-    "First time pointing or gesturing",
-    "First day of preschool/kindergarten",
-    "Learning to ride a bike",
-    "First time tying shoelaces independently",
-    "First day of elementary school",
-    "Learning to swim",
-    "First time reading a book independently",
-    "First day of middle school",
-    "First day of high school",
-    "Learning to drive",
-    "First job",
-    "Graduating high school",
-    "Moving out of the family home / starting college or career"
+    {"name": "First bottle feed", "typical": "0–3 months"},
+    {"name": "First time drinking from a cup", "typical": "6–9 months"},
+    {"name": "First time sitting without support", "typical": "6–8 months"},
+    {"name": "First time crawling", "typical": "7–10 months"},
+    {"name": "First time standing while holding onto something", "typical": "8–10 months"},
+    {"name": "First time standing without support", "typical": "9–12 months"},
+    {"name": "First tooth", "typical": "6–10 months"},
+    {"name": "First solid food", "typical": "6 months"},
+    {"name": "First steps with support", "typical": "10–12 months"},
+    {"name": "First time walking", "typical": "12–15 months"},
+    {"name": "First words", "typical": "12–18 months"},
+    {"name": "First time pointing or gesturing", "typical": "9–14 months"},
+    {"name": "First day of preschool/kindergarten", "typical": "3–5 years"},
+    {"name": "Learning to ride a bike", "typical": "4–7 years"},
+    {"name": "First time tying shoelaces independently", "typical": "5–7 years"},
+    {"name": "First day of elementary school", "typical": "5–7 years"},
+    {"name": "Learning to swim", "typical": "5–9 years"},
+    {"name": "First time reading a book independently", "typical": "6–8 years"},
+    {"name": "First day of middle school", "typical": "10–12 years"},
+    {"name": "First day of high school", "typical": "13–15 years"},
+    {"name": "Learning to drive", "typical": "16–18 years"},
+    {"name": "First job", "typical": "16–20 years"},
+    {"name": "Graduating high school", "typical": "17–19 years"},
+    {"name": "Moving out of the family home / starting college or career", "typical": "18–22 years"},
 ]
 
 # ---- Incoming payloads ----
@@ -45,13 +48,11 @@ class ChildCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     dob: str  # ISO format date string
 
-
 class ChildUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=100)
-    dob: str | None = None
-    privacy: dict[str, PrivacyLevel] | None = None
-    milestones: list[dict[str, object]] | None = None
-
+    name: Optional[str] = None
+    dob: Optional[str] = None
+    privacy: Optional[Dict[str, str]] = None
+    milestones: Optional[List[Dict[str, Any]]] = Field(default=None)
 
 class GrowthCreate(BaseModel):
     date: str
@@ -121,14 +122,17 @@ class Growth(BaseModel):
     height: float
     weight: float
 
-    def to_item(self) -> dict[str, object]:
+    def to_item(self) -> dict:
+        from decimal import Decimal
         return {
             "PK": f"USER#{self.user_id}",
             "SK": f"CHILD#{self.child_id}#GROWTH#{self.date}",
+            "user_id": self.user_id,
             "child_id": self.child_id,
             "date": self.date,
-            "height": self.height,
-            "weight": self.weight
+            "height": Decimal(str(self.height)),
+            "weight": Decimal(str(self.weight)), 
+            "gsi": "GROWTH",
         }
 
     @staticmethod

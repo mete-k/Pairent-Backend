@@ -50,41 +50,54 @@ def add_child(user_id: str, child: dict[str, object]) -> dict[str, object]:
     return child
 
 def update_child(user_id: str, child_id: str, updates: dict[str, object]) -> dict[str, object]:
-    key = Child.key(user_id, child_id)
-    expr = []
-    values = {}
+    from decimal import Decimal
+
+    key = {"PK": f"USER#{user_id}", "SK": f"CHILD#{child_id}"}
+    print(f"[REPO] update_child called with {user_id=} {child_id=} {updates=}")
+
+    if not updates or not any(v is not None for v in updates.values()):
+        print("[REPO] No updates provided — skipping")
+        return {}
+
+    expr_parts = []
     names = {}
+    values = {}
 
     for k, v in updates.items():
-        # Handle reserved keywords like 'name'
-        attr_name = f"#{k}" if k in ["name"] else k
-        expr.append(f"{attr_name} = :{k}")
-        values[f":{k}"] = v
-        if attr_name.startswith("#"):
-            names[attr_name] = k
+        if isinstance(v, float):
+            v = Decimal(str(v))
+        if k == "milestones" and isinstance(v, list):
+            cleaned = [{"id": int(m["id"]), "reached": bool(m["reached"])} for m in v]
+            names["#ms"] = "milestones"
+            values[":ms"] = cleaned
+            expr_parts.append("#ms = :ms")
+        else:
+            names[f"#{k}"] = k
+            values[f":{k}"] = v
+            expr_parts.append(f"#{k} = :{k}")
 
-    update_expr = "SET " + ", ".join(expr)
+    update_expr = "SET " + ", ".join(expr_parts)
+    print("[REPO] UpdateExpression:", update_expr)
+    print("[REPO] ExpressionAttributeValues:", values)
 
-    params = {
-        "Key": key,
-        "UpdateExpression": update_expr,
-        "ExpressionAttributeValues": values,
-        "ReturnValues": "ALL_NEW",
-    }
+    res = table.update_item(
+        Key=key,
+        UpdateExpression=update_expr,
+        ExpressionAttributeNames=names,
+        ExpressionAttributeValues=values,
+        ReturnValues="ALL_NEW"
+    )
 
-    if names:
-        params["ExpressionAttributeNames"] = names
-
-    res = table.update_item(**params)
-    return res["Attributes"]
-
+    print("[REPO] DynamoDB update_item result:", res.get("Attributes", {}))
+    return res.get("Attributes", {})
 
 def get_children(user_id: str) -> list[dict[str, object]]:
     """Return all child records for a given user."""
     res = table.query(
         KeyConditionExpression=Key("PK").eq(f"USER#{user_id}") & Key("SK").begins_with("CHILD#")
     )
-    return res.get("Items", [])
+    items = res.get("Items", [])
+    return [i for i in items if i["SK"].count("#") == 1]
 
 def delete_child(user_id: str, child_id: str) -> None:
     table.delete_item(Key=Child.key(user_id, child_id))
