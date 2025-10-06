@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
 from typing import Literal
-from decimal import Decimal
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
@@ -179,10 +178,3 @@ class FriendRequest(BaseModel):
     @staticmethod
     def key(to_id: str, from_id: str) -> dict[str, str]:
         return {"PK": f"USER#{to_id}", "SK": f"FRIEND_REQUEST#{from_id}"}
-
-from pydantic import BaseModel
-from typing import Optional
-
-class ChildUpdate(BaseModel):
-    name: Optional[str] = None
-    dob: Optional[str] = None

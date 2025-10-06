@@ -197,8 +197,6 @@ def edit_question(qid):
         return {"error": "meaningless_request"}, 400
 
     resp = svc.edit_question(qid=qid, title=title, body=body)
-    if not resp:
-        return {"error": "question_not_found"}, 404
     if "error" in resp:
         return resp, 400
     return resp, 200

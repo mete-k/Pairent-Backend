@@ -8,7 +8,6 @@ from .service.forum_service import ForumService
 from .service.profile_service import ProfileService
 from .auth import init_cognito
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 

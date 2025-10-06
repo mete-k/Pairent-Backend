@@ -46,7 +46,7 @@ def get_daily_tip():
         "Children learn more from what you do than what you say.",
         "Consistency helps kids feel safe — keep routines steady where possible.",
         "Praise effort, not just results — it builds resilience.",
-        "Don’t forget: no parent is perfect, but every day is a chance to connect.",
+        "Don't forget: no parent is perfect, but every day is a chance to connect.",
     ]
     return jsonify({"text": random.choice(tips)})
 

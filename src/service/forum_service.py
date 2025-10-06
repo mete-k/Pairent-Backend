@@ -55,11 +55,10 @@ class ForumService:
     def edit_question(self, qid: str, title: str = "", body: str = "") -> dict[str, object] | None:
         authorship = _authorized(qid)
         if authorship == -1:
-            return None
+            return {"error": "not_found"}
         elif authorship == 0:
             return {"error": "not_authorized"}
-        q = QuestionRepo.edit(qid=qid, title=title, body=body)
-        return None if q is None else q.model_dump()
+        QuestionRepo.edit(qid=qid, title=title, body=body)
     
     def delete_question(self, qid: str) -> tuple[dict[str, str] | str, int]:
         authorship = _authorized(qid)
