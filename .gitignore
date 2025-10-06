@@ -26,3 +26,4 @@ dynamodb-local-metadata.json
 Thumbs.db
 # MacOS
 .DS_Store
+.env
