@@ -1,6 +1,6 @@
 import os, time, uuid, requests
 from flask import current_app
-from ..models.breakroom import Breakroom
+from ..models.breakrooms import Breakroom
 from ..repo import breakrooms_repo as repo
 
 DAILY_API_KEY = os.environ.get("DAILY_API_KEY", "")

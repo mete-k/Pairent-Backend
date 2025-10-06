@@ -1,61 +1,74 @@
-from flask import Blueprint, jsonify, g, current_app
-from ..auth import cognito_auth_required
-from ..service import breakroom_service as service
+from flask import Blueprint, jsonify, request
+import os, requests, time
 
 bp = Blueprint("breakrooms", __name__)
+DAILY_API_KEY = os.getenv("DAILY_API_KEY")
+DAILY_API_URL = "https://api.daily.co/v1/rooms"
 
-@bp.post("/breakrooms")
-@cognito_auth_required
-def create_breakroom():
-    try:
-        data = service.create_breakroom(g.user_sub)
-        return jsonify(data), 201
-    except Exception as e:
-        current_app.logger.error("Failed to create breakroom: %s", str(e))
-        return jsonify({"error": "daily_room_creation_failed"}), 502
+def _headers():
+    return {"Authorization": f"Bearer {DAILY_API_KEY}"}
 
-@bp.post("/breakrooms/<room_id>/tokens")
-@cognito_auth_required
-def issue_token(room_id):
-    try:
-        token_data, err = service.issue_token(room_id, g.user_sub, g.username)
-        if err == "room_not_found": return jsonify({"error": err}), 404
-        if err == "room_not_active": return jsonify({"error": err}), 409
-        return jsonify(token_data), 200
-    except Exception as e:
-        current_app.logger.error("Failed to issue token: %s", str(e))
-        return jsonify({"error": "token_issue_failed"}), 502
-
-@bp.delete("/breakrooms/<room_id>")
-@cognito_auth_required
-def end_breakroom(room_id):
-    try:
-        err = service.end_breakroom(room_id, g.user_sub, getattr(g, "groups", []))
-        if err == "room_not_found": return jsonify({"error": err}), 404
-        if err == "forbidden": return jsonify({"error": err}), 403
-        return jsonify({"message": "Room ended"}), 200
-    except Exception as e:
-        current_app.logger.error("Failed to end breakroom: %s", str(e))
-        return jsonify({"error": "daily_room_delete_failed"}), 502
-
-@bp.get("/breakrooms/<room_id>")
-@cognito_auth_required
-def get_breakroom(room_id):
-    try:
-        data = service.get_breakroom(room_id)
-        if not data:
-            return jsonify({"error": "room_not_found"}), 404
-        return jsonify(data), 200
-    except Exception as e:
-        current_app.logger.error("Failed to fetch breakroom: %s", str(e))
-        return jsonify({"error": "room_fetch_failed"}), 502
-
-@bp.get("/breakrooms")
-@cognito_auth_required
+# ---------- List Breakrooms ----------
+@bp.route("/breakrooms", methods=["GET"])
 def list_breakrooms():
     try:
-        rooms = service.list_breakrooms()
-        return jsonify(rooms), 200
+        resp = requests.get(DAILY_API_URL, headers=_headers())
+        return jsonify(resp.json())
     except Exception as e:
-        current_app.logger.error("Failed to list breakrooms: %s", str(e))
-        return jsonify({"error": "room_list_failed"}), 502
+        return jsonify({"error": str(e)}), 500
+
+# ---------- Create Breakroom ----------
+@bp.route("/breakrooms", methods=["POST"])
+def create_breakroom():
+    import os, re, time, requests
+    from flask import request, jsonify
+
+    try:
+        data = request.get_json() or {}
+        print("Received data:", data)
+
+        DAILY_API_KEY = os.getenv("DAILY_API_KEY")
+        if not DAILY_API_KEY:
+            print("DAILY_API_KEY missing or not loaded")
+            return jsonify({"error": "Missing API key"}), 500
+
+        raw_name = data.get("name", f"room_{int(time.time())}")
+        name = re.sub(r"[^A-Za-z0-9_-]", "-", raw_name)
+        description = data.get("description", "")
+
+        payload = {
+            "name": name,
+            "privacy": "public",
+            "properties": {
+                "enable_chat": True,
+                "start_audio_off": False,
+                "start_video_off": True,
+                "exp": int(time.time()) + 3600,
+            },
+        }
+
+        headers = {
+            "Authorization": f"Bearer {DAILY_API_KEY}",
+            "Content-Type": "application/json",
+        }
+
+        print("Payload sent to Daily:", payload)
+        resp = requests.post("https://api.daily.co/v1/rooms", json=payload, headers=headers)
+        print("Daily response:", resp.status_code, resp.text)
+
+        # Handle Daily errors cleanly
+        if resp.status_code != 200:
+            return jsonify({"error": resp.json()}), resp.status_code
+
+        room = resp.json()
+        return jsonify({
+            "id": room["name"],
+            "name": room["name"],
+            "url": room["url"],
+            "description": description,
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
