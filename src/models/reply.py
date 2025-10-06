@@ -13,6 +13,7 @@ class Reply(BaseModel):
     rid: str
     parent_id: str # parent object (question or answer)
     user_id: str
+    name: str
     body: str
     created_at: str
     likes: int
@@ -24,6 +25,7 @@ class Reply(BaseModel):
             "SK": f"REPLY#{self.rid}",
             "parent": self.parent_id,
             "user": self.user_id,
+            "name": self.name,
             "body": self.body,
             "date": self.created_at,
             "likes": self.likes,
@@ -46,6 +48,7 @@ def to_reply(item: dict) -> Reply | None:
             parent_id=item.get("parent", ""),
             user_id=item.get("user", ""),
             body=item.get("body", ""),
+            name=item.get("name", "Anonymous"),
             created_at=item.get("date", ""),
             likes=item.get("likes", 0),
             reply_count=item.get("replies", 0)

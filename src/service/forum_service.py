@@ -13,20 +13,8 @@ class ForumService:
     def __init__(self) -> None:
         ensure_table()
     def create_question(self, payload: QuestionCreate) -> dict[str, object]:
-        from boto3 import client
+        name = _extract_name()
 
-        cl = client("cognito-idp", region_name="eu-north-1")
-
-        resp = cl.admin_get_user(
-            UserPoolId="eu-north-1_LRB1Cr2sA",
-            Username=g.user_sub
-        )
-
-        # Extract the "name" attribute (or others)
-        name = next(
-            (attr["Value"] for attr in resp["UserAttributes"] if attr["Name"] == "name"),
-            None
-        )
         q = Question(
             qid=uuid.uuid4().hex,
             title=payload.title.strip(),
@@ -158,6 +146,8 @@ class ForumService:
             data = ReplyCreate(**payload)
         except Exception as e:
             return {"error": "validation", "details": str(e)}, 400
+        
+        name = _extract_name()
 
         rid = uuid.uuid4().hex
         reply = Reply(
@@ -165,6 +155,7 @@ class ForumService:
             rid=rid,
             parent_id=data.parent_id,
             user_id=g.user_sub,
+            name=name,
             body=data.body.strip(),
             created_at=datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S"),
             likes=0,
@@ -224,10 +215,37 @@ def _resolve_direction(direction: str) -> bool | None:
             return True
         case _:
             return None
-        
-# def _validate_last_key(last_key: dict[str, str] | None) -> dict[str, str] | None:
-#     if not last_key:
-#         return None
-#     if "PK" in last_key and "SK" in last_key:
-#         return last_key
-#     return None
+
+def _extract_name() -> str:
+    """
+    Safely extract the user's name from Cognito.
+    Always returns a non-empty string.
+    """
+    import boto3
+    from flask import g
+
+    cl = boto3.client("cognito-idp", region_name="eu-north-1")
+
+    try:
+        resp = cl.admin_get_user(
+            UserPoolId="eu-north-1_LRB1Cr2sA",
+            Username=g.user_sub
+        )
+
+        # Find a 'name' attribute if available
+        for attr in resp.get("UserAttributes", []):
+            if attr["Name"] == "name" and attr.get("Value"):
+                return str(attr["Value"])
+
+        # fallback to username/email if no 'name' exists
+        for alt in ["preferred_username", "username", "email"]:
+            for attr in resp.get("UserAttributes", []):
+                if attr["Name"] == alt and attr.get("Value"):
+                    return str(attr["Value"])
+
+        # Final fallback
+        return "Anonymous"
+
+    except Exception as e:
+        print(f"[WARN] Could not fetch Cognito name: {e}")
+        return "Anonymous"

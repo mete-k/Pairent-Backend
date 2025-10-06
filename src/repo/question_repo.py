@@ -4,8 +4,6 @@ from ..db import table
 from ..models.question import Question, to_question
 from ..models.forum import Like, Save, Tag, to_tag
 from botocore.exceptions import ClientError
-from boto3.dynamodb.conditions import Key
-from boto3.dynamodb.conditions import Attr
 from boto3.dynamodb.conditions import Key, Attr
 from ..db import table
 
@@ -270,7 +268,6 @@ def list_questions_with_tag(tag: str, direction: bool, limit: int, last_key: dic
 
     return ret
 
-from boto3.dynamodb.conditions import Attr
 
 def search_questions(query: str, direction: bool, limit: int, last_key: dict[str, str] | None) -> dict[str, object]:
     filter_expression = Attr("title").contains(query)
