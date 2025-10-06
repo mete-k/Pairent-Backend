@@ -2,7 +2,8 @@ from flask import Flask
 from flask_cors import CORS
 from .routes.forum_routes import bp as forum_bp
 from .routes.profile_routes import bp as profile_bp
-from .routes.breakroom_routes import bp as breakrooms_bp  # 👈 ADD THIS
+from .routes.breakroom_routes import bp as breakrooms_bp  
+from .routes.bibi_routes import bp as bibi_bp
 from .service.forum_service import ForumService
 from .service.profile_service import ProfileService
 from .auth import init_cognito
@@ -25,6 +26,7 @@ def create_app():
     app.register_blueprint(forum_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(breakrooms_bp)
+    app.register_blueprint(bibi_bp)
 
     CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
